@@ -1,2 +1,5 @@
 # Labs
-XP tracker for the Lost City live server
+
+XP tracker for skillers on https://2004.lostcity.rs
+
+Inspired by anders' Lost City Labs

@@ -1,6 +1,7 @@
 <?php
 // Run from cron every few minutes: imports hiscore changes from the game website, then refreshes period gains.
 require __DIR__ . '/db.php';
+ini_set('user_agent', 'LostCityLabs (+https://labs.lostcity.rs)'); // Cloudflare rejects requests without one
 const PAGE = 10000; // must match the game endpoint's row limit
 $api = $env('LABS_GAME_API');
 $now = (int) (microtime(true) * 1000);

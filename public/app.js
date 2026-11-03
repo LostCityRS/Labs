@@ -59,7 +59,7 @@ async function hiscoresView() {
 }
 async function recordsView() {
   const rows = await api({q: 'records'});
-  return `<div class="page-heading"><div><div class="eyebrow">Best rolling windows</div><h1>XP records</h1></div>${periodControl()}</div><div class="toolbar">${skillSelect()}</div><section class="panel">${table(['Rank', 'Player', `XP · ${state.period}`, 'Between'], rows.map((r, i) => [i + 1, link(r.name), `<span class="gain">${xp(r.gain)}</span>`, `${new Date(r.start_at).toLocaleString('en-GB')} – ${new Date(r.end_at).toLocaleString('en-GB')}`]), 'XP records')}</section><p class="footnote">Most XP gained between two hiscore updates no more than ${state.period} apart. Hiscores update when a player logs out.</p>`;
+  return `<div class="page-heading"><div><div class="eyebrow">Best rolling windows</div><h1>XP records</h1></div>${periodControl()}</div><div class="toolbar">${skillSelect()}</div><section class="panel">${table(['Rank', 'Player', `XP · ${state.period}`, 'Between'], rows.map((r, i) => [i + 1, link(r.name), `<span class="gain">${xp(r.gain)}</span>`, `${new Date(r.start_at).toLocaleString('en-GB')} – ${new Date(r.end_at).toLocaleString('en-GB')}`]), 'XP records')}</section><p class="footnote">Most XP gained between two logouts no more than ${state.period} apart.</p>`;
 }
 async function render() {
   document.querySelectorAll('[data-view]').forEach(a => a.setAttribute('aria-current', a.dataset.view === state.view ? 'page' : 'false'));

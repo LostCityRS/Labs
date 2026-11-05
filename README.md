@@ -1,24 +1,21 @@
-# Labs
+<h1><img src="public/assets/stats.png" width="44" height="42" align="absmiddle" alt=""> Lost City Labs</h1>
 
-XP tracker for skillers on https://2004.lostcity.rs
+XP tracker for https://2004.lostcity.rs , inspired by anders' original Lost City Labs.
 
-Inspired by anders' Lost City Labs.
+Live at https://labs.lostcity.rs
 
-## Data from the game server
 
-Searching for a player that Labs doesn't know yet calls `GET https://2004.lostcity.rs/api/hiscores/player/:username` with our `x-api-key`. That returns their stats and enrolls them; from then on the game website sends their hiscores on every logout:
+## Run locally
 
+Install PHP and MySQL, then run:
+
+```sh
+mysql -e 'CREATE DATABASE labs' && mysql labs < schema.sql
+LABS_DB_DSN='mysql:host=localhost;dbname=labs' LABS_DB_USER=root LABS_API_KEY=dev php -S 127.0.0.1:8080 -t public
 ```
-POST https://labs.lostcity.rs/api/hiscores/callback/:username
-x-api-key: <LABS_API_KEY>
-[{"type":0,"level":1234,"value":5678901,"rank":42}, …]
-```
 
-## Run
+Open http://127.0.0.1:8080 and search for a player.
 
-- `schema.sql` creates the MySQL tables.
-- nginx serves `public/` with PHP-FPM and rewrites `/api/hiscores/callback/(.+)` to `/ingest.php?username=$1`.
-- `php refresh.php` every 5 minutes (cron) refreshes period gains.
-- PHP reads `LABS_DB_DSN` (e.g. `mysql:host=localhost;dbname=labs`), `LABS_DB_USER`, `LABS_DB_PASS` and `LABS_API_KEY` from the environment.
+---
 
-Stats update when a player logs out.
+Join Discord: https://discord.gg/m5Q6ZZrbPH

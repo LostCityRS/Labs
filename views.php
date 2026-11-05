@@ -25,6 +25,13 @@ function skill_select(array $s): string {
     foreach (SKILLS as $name) $html .= '<option' . ($name === $s['skill'] ? ' selected' : '') . '>' . e($name) . '</option>';
     return $html . '</select></label><button type="submit">Apply</button></form>';
 }
+function hiscore_controls(array $s): string {
+    $html = '<form class="skill-filter hiscore-controls" action="/hiscores" method="get"><label class="select-label">View<select name="board">';
+    foreach (HISCORE_BOARDS as $key => $label) $html .= '<option value="' . $key . '"' . ($s['board'] === $key ? ' selected' : '') . '>' . e($label) . '</option>';
+    $html .= '</select></label><button type="submit">Apply</button><fieldset class="hiscore-filters" title="Only accounts whose restrictions can be confirmed from recorded stats are included. Skiller means combat level 3; F2P means no members-skill XP."><legend class="sr-only">Account restrictions</legend>';
+    foreach (HISCORE_FILTERS as $key => $label) $html .= '<label><input type="checkbox" name="' . $key . '" value="1"' . ($s[$key] ? ' checked' : '') . '>' . e($label) . '</label>';
+    return $html . '</fieldset></form>';
+}
 function period_control(array $s): string {
     $html = '<nav class="segments" aria-label="Time period">';
     foreach (PERIODS as $period => $ms) $html .= '<a href="' . url($s['canonical'], ['period' => $period, 'skill' => $s['skill']]) . '"' . ($s['period'] === $period ? ' aria-current="true"' : '') . '>' . e($period) . '</a>';
@@ -39,11 +46,11 @@ function skill_tabs(array $s, bool $guides = false): string {
     }
     return $html . '</nav>';
 }
-function table(array $headers, array $rows, string $caption, ?string $sorted = null): string {
+function table(array $headers, array $rows, string $caption, ?string $sorted = null, string $direction = 'descending'): string {
     if (!$rows) return empty_message('Nothing yet.');
-    $word = fn($i) => str_starts_with($headers[$i], 'Player') ? ' class="word-column"' : '';
+    $word = fn($i) => str_starts_with($headers[$i], 'Player') || $headers[$i] === 'Name' ? ' class="word-column"' : '';
     $html = '<div class="table-wrap"><table><caption class="sr-only">' . e($caption) . '</caption><thead><tr>';
-    foreach ($headers as $i => $h) $html .= '<th scope="col"' . ($h === $sorted ? ' aria-sort="descending"' : '') . $word($i) . '>' . e($h) . '</th>';
+    foreach ($headers as $i => $h) $html .= '<th scope="col"' . ($h === $sorted ? ' aria-sort="' . e($direction) . '"' : '') . ($h === 'Maxing date' ? ' title="Overall max (' . fmt((count(SKILLS) - 1) * 99) . ' total), first observed in UTC"' : '') . $word($i) . '>' . e($h) . '</th>';
     $html .= '</tr></thead><tbody>';
     foreach ($rows as $row) {
         $html .= '<tr>';
@@ -69,9 +76,15 @@ function chart(array $points, string $name, string $unit, array $s, bool $daily 
     $x = fn($at) => 62 + ($at - $start) / max(1, $s['now'] - $start) * 650;
     $y = fn($value) => 185 - ($value - $min) * 148 / $range;
     [$scale, $suffix] = $max >= 1e6 ? [1e6, 'm'] : ($max >= 1e4 ? [1e3, 'k'] : [1, '']);
-    $decimals = (int) min(4, max(0, ceil(log10($scale * 3 / $range))));
+    $decimals = (int) min(1, max(0, ceil(log10($scale * 3 / $range))));
     $html = '<svg class="chart' . (count($points) > 60 ? ' dense' : '') . '" viewBox="0 0 770 226" role="img" aria-label="' . e($name) . '"><g class="grid">';
-    for ($i = 0; $i < 4; $i++) $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/><text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . fmt(($max - $i * $range / 3) / $scale, $decimals) . $suffix . '</text>';
+    $lastLabel = null;
+    for ($i = 0; $i < 4; $i++) {
+        $label = fmt(($max - $i * $range / 3) / $scale, $decimals) . $suffix;
+        $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/>';
+        if ($label !== $lastLabel) $html .= '<text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . $label . '</text>';
+        $lastLabel = $label;
+    }
     $line = implode(' ', array_map(fn($p) => $x($p['at']) . ',' . $y($p['value']), $points));
     $html .= '</g><polyline class="xp-line" points="' . $line . '"/>';
     foreach ($points as $p) {
@@ -91,7 +104,7 @@ function ehp_pie(array $ehp, string $name): string {
     $html = '<section class="panel ehp-breakdown"><h2>EHP by skill</h2><div class="pie-wrap"><svg viewBox="0 0 200 200" role="img" aria-label="EHP by skill for ' . display_name($name) . '">';
     foreach ($skills as $type => $value) {
         $start = $fraction; $fraction += $value / $total;
-        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP · ' . fmt($value / $total * 100, 2) . '%';
+        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP · ' . fmt($value / $total * 100, 1) . '%';
         $path = count($skills) === 1 ? 'M100,10 A90,90 0 1,1 100,190 A90,90 0 1,1 100,10 Z' : 'M100,100 L' . $point($start) . ' A90,90 0 ' . ($value / $total > .5 ? 1 : 0) . ',1 ' . $point($fraction) . ' Z';
         $html .= '<g class="pie-slice" tabindex="0" data-label="' . e($label) . '" aria-label="' . e($label) . '"><path d="' . $path . '" fill="' . PIE_COLORS[$type] . '" stroke="var(--panel)" stroke-width="1"/></g>';
     }
@@ -131,14 +144,17 @@ function player_view(array $s, ?array $d): string {
     return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_pie($ehp, $s['name'])) . '</aside></div>';
 }
 function hiscores_view(array $s, array $rows): string {
-    $ehp = $rows && array_key_exists('ehp', $rows[0]);
-    if ($ehp) {
-        foreach ($rows as $r) if (!isset($r['ehp']) || !is_numeric($r['ehp']) || !is_finite((float) $r['ehp']) || $r['ehp'] < 0) throw new RuntimeException('Hiscores contain invalid EHP');
-        usort($rows, fn($a, $b) => $b['ehp'] <=> $a['ehp'] ?: strcmp($a['name'], $b['name']));
+    $maxing = $s['board'] === 'max'; $cells = [];
+    foreach ($rows as $i => $r) {
+        if (!isset($r['ehp']) || !is_numeric($r['ehp']) || !is_finite((float) $r['ehp']) || $r['ehp'] < 0) throw new RuntimeException('Hiscores contain invalid EHP');
+        $row = [$i + 1, player_link($r['name']), $r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value']), fmt($r['ehp'], 1)];
+        if ($maxing) $row[] = $r['maxed_at'] === null ? '–' : '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', (int) ($r['maxed_at'] / 1000)) . '" title="First observed maxed · UTC">' . gmdate('j M Y', (int) ($r['maxed_at'] / 1000)) . '</time>';
+        $cells[] = $row;
     }
-    $cells = [];
-    foreach ($rows as $i => $r) $cells[] = array_merge([$ehp ? $i + 1 : fmt($r['rank']), player_link($r['name'])], $ehp ? [fmt($r['ehp'], 1)] : [], [$r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value'])]);
-    return '<div class="page-heading"><h1>Hiscores</h1>' . skill_select($s) . '</div><section class="panel">' . table(array_merge(['Rank', 'Player'], $ehp ? ['EHP'] : [], ['Level', 'Experience']), $cells, $s['skill'] . ' hiscores', $ehp ? 'EHP' : null) . '</section>';
+    $headers = array_merge(['Rank', 'Name', 'Level', 'Exp', 'EHP'], $maxing ? ['Maxing date'] : []);
+    $sorted = ['level' => 'Level', 'max' => 'Maxing date', 'ehp' => 'EHP', 'xp' => 'Exp'][$s['board']];
+    $body = !$rows && ($s['def1'] || $s['skiller'] || $s['f2p']) ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
+    return '<div class="page-heading hiscores-heading"><h1>Hiscores</h1>' . hiscore_controls($s) . '</div><section class="panel">' . $body . '</section>';
 }
 function records_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>XP records</h1></div>' . skill_tabs($s) . '<section class="panel"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div><div class="boards">';
@@ -164,7 +180,7 @@ function page_body(array $s, $d): string {
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (['guides' => 'EHP', 'error' => 'Error'] + NAV)[$s['view']];
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=11"><script src="/app.js?v=10" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=12"><script src="/app.js?v=10" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
     foreach (NAV as $view => $label) $html .= '<a href="' . ($view === 'home' ? '/' : ($view === 'records' ? '/records/Overall' : '/' . $view)) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
     return $html . '</nav><div class="guide-menu"><div class="sidebar-heading">Guides</div><nav aria-label="Guides"><a href="/guides/ehp"' . ($s['view'] === 'guides' ? ' aria-current="page"' : '') . '>EHP</a></nav></div><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span></footer></div></body></html>';
 }

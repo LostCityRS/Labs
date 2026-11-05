@@ -3,6 +3,7 @@ const SKILLS = [0 => 'Overall', 1 => 'Attack', 2 => 'Defence', 3 => 'Strength', 
 const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
 const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 require_once __DIR__ . '/ehp.php';
+require_once __DIR__ . '/hiscores.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -27,9 +28,10 @@ function page_state(string $uri, array $params, int $now): array {
     $skill = parameter($params, 'skill', $defaultSkill);
     $type = array_search($skill, SKILLS, true);
     if ($type === false || ($view === 'guides' && $type === 0)) throw new InvalidArgumentException("Unknown skill: $skill");
+    if ($view === 'hiscores' && $type !== 0) throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $name = $view === 'player' ? safe_name($parts[1]) : '';
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => '/records/' . $skill, 'guides' => '/guides/ehp', default => '/' . $view};
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical');
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical') + ($view === 'hiscores' ? hiscore_options($params) : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {
@@ -80,7 +82,7 @@ function get_data(PDO $db, array $params, int $now) {
             // Late-committing pre-midnight callbacks must not be frozen out of yesterday's count.
             'observed' => $fetch('SELECT d.day AS at, COUNT(o.player_id) AS value FROM daily_players d LEFT JOIN daily_observed o ON o.day = d.day WHERE d.started_at < d.day + 60000 AND d.day < ? GROUP BY d.day ORDER BY d.day', [intdiv($now, 86400000) * 86400000]),
         ],
-        'hiscores' => $fetch('SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model FROM ehp e JOIN players p ON p.id = e.player_id LEFT JOIN current c ON c.player_id = e.player_id AND c.type = e.type WHERE e.model = ? AND e.type = ? ORDER BY e.value DESC, p.name LIMIT 50', [ehp_model()['id'], $type]),
+        'hiscores' => hiscores_rows($db, $params),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),

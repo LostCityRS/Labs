@@ -56,8 +56,9 @@ function calculate_ehp(array $xp10): array {
     return $scores;
 }
 function cache_ehp(PDO $db, int $player): void {
-    $stats = fetch_rows($db, 'SELECT type, value FROM current WHERE player_id = ?', [$player]);
+    $stats = fetch_rows($db, 'SELECT type, level, value, at FROM current WHERE player_id = ?', [$player]);
     if (!$stats) return;
+    cache_hiscores($db, $player, $stats);
     $scores = calculate_ehp(array_column($stats, 'value', 'type'));
     $query = $db->prepare('INSERT INTO ehp (model, player_id, type, value) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)');
     ksort($scores);

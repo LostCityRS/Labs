@@ -1,6 +1,12 @@
 <?php
 require __DIR__ . '/../lib.php';
 header('Content-Type: application/json');
+set_exception_handler(function (Throwable $e) {
+    error_log((string) $e);
+    $bad = $e instanceof InvalidArgumentException;
+    http_response_code($bad ? 400 : 500);
+    echo json_encode(['error' => $bad ? $e->getMessage() : 'Server error']);
+});
 $fetch = function (string $sql, array $args = []) use ($db) {
     $query = $db->prepare($sql);
     $query->execute($args);
@@ -9,7 +15,14 @@ $fetch = function (string $sql, array $args = []) use ($db) {
 $period = $_GET['period'] ?? '24h';
 $type = (int) ($_GET['type'] ?? 0);
 if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period $period");
-$rank = '(SELECT COUNT(*) + 1 FROM current r WHERE r.type = c.type AND (r.level > c.level OR r.level = c.level AND r.value > c.value))';
+// Looking a player up with our key also tells the game website to send us their future logouts.
+$track = function () use ($db, $env, $now) {
+    $name = safe_name($_GET['name'] ?? '');
+    $url = "https://2004.lostcity.rs/api/hiscores/player/$name";
+    $body = file_get_contents($url, false, stream_context_create(['http' => ['header' => 'x-api-key: ' . $env('LABS_API_KEY'), 'user_agent' => 'LostCityLabs (+https://labs.lostcity.rs)']]));
+    if ($body === false) throw new RuntimeException("Fetching $url failed");
+    return $body === '' ? null : import_stats($db, $name, json_decode($body, true, flags: JSON_THROW_ON_ERROR), $now);
+};
 $result = match ($_GET['q'] ?? '') {
     'home' => [
         'gainers' => $fetch('SELECT name, gain FROM gains JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 10', [$period, $type]),
@@ -17,12 +30,13 @@ $result = match ($_GET['q'] ?? '') {
         'nineties' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level = 99 ORDER BY at DESC LIMIT 5'),
         'levels' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level < 99 ORDER BY at DESC LIMIT 8'),
     ],
-    'player' => ($id = $fetch('SELECT id FROM players WHERE name = ?', [strtolower(trim($_GET['name'] ?? ''))])[0]['id'] ?? null) === null ? null : [
-        'stats' => $fetch("SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, $rank AS `rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?", [$period, $id]),
+    'track' => $track(),
+    'player' => ($id = $fetch('SELECT id FROM players WHERE name = ?', [safe_name($_GET['name'] ?? '')])[0]['id'] ?? null) === null ? null : [
+        'stats' => $fetch("SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, c.`rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?", [$period, $id]),
         'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
         'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
     ],
-    'hiscores' => $fetch('SELECT name, level, value FROM current JOIN players ON id = player_id WHERE type = ? ORDER BY level DESC, value DESC LIMIT 50', [$type]),
+    'hiscores' => $fetch('SELECT name, level, value, `rank` FROM current JOIN players ON id = player_id WHERE type = ? ORDER BY level DESC, value DESC LIMIT 50', [$type]),
     'records' => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 50', [$period, $type]),
     default => throw new InvalidArgumentException('Unknown query'),
 };

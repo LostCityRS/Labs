@@ -1,9 +1,10 @@
 <?php
-// The game server POSTs here when a player logs out.
+// The game website POSTs a tracked player's hiscores to /api/hiscores/callback/:username when they log out.
 require __DIR__ . '/../lib.php';
-if (!hash_equals('Bearer ' . $env('LABS_PUSH_TOKEN'), $_SERVER['HTTP_AUTHORIZATION'] ?? '')) {
+if (!hash_equals($env('LABS_API_KEY'), $_SERVER['HTTP_X_API_KEY'] ?? '')) {
+    error_log('Labs callback rejected; headers sent: ' . implode(', ', array_keys(getallheaders())));
     http_response_code(401);
     exit;
 }
-$rows = json_decode(file_get_contents('php://input'), true, flags: JSON_THROW_ON_ERROR);
-echo json_encode(['imported' => import_rows($db, $rows, $now)]);
+$stats = json_decode(file_get_contents('php://input'), true, flags: JSON_THROW_ON_ERROR);
+echo json_encode(['imported' => import_stats($db, safe_name($_GET['username'] ?? ''), $stats, $now)]);

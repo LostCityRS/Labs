@@ -14,7 +14,7 @@ document.body.innerHTML = `<div class="shell"><header class="masthead"><a class=
 const main = document.querySelector('#main');
 const api = async params => {
   const res = await fetch(`api.php?${new URLSearchParams({period: state.period, type: typeOf(state.skill), ...params})}`);
-  if (!res.ok && res.status !== 404) throw new Error(`Labs API ${res.status}: ${await res.text()}`);
+  if (!res.ok && res.status !== 404) throw new Error((await res.json()).error);
   const {updated_at, data} = await res.json();
   document.querySelector('#updated').textContent = updated_at ? `Hiscores last changed ${ago(updated_at)}` : 'No data imported yet';
   return data;
@@ -55,7 +55,7 @@ async function playerView() {
 }
 async function hiscoresView() {
   const rows = await api({q: 'hiscores'});
-  return `<div class="page-heading"><div><div class="eyebrow">2004Scape</div><h1>Hiscores</h1></div>${skillSelect()}</div><section class="panel">${table(['Rank', 'Player', 'Level', 'Experience'], rows.map((r, i) => [i + 1, link(r.name), fmt(r.level), xp(r.value)]), `${state.skill} hiscores`)}</section>`;
+  return `<div class="page-heading"><div><div class="eyebrow">2004Scape</div><h1>Hiscores</h1></div>${skillSelect()}</div><section class="panel">${table(['Rank', 'Player', 'Level', 'Experience'], rows.map(r => [fmt(r.rank), link(r.name), fmt(r.level), xp(r.value)]), `${state.skill} hiscores`)}</section>`;
 }
 async function recordsView() {
   const rows = await api({q: 'records'});
@@ -79,7 +79,10 @@ document.addEventListener('change', e => {if (e.target.id === 'skill-filter') {s
 document.addEventListener('submit', async e => {
   e.preventDefault();
   const name = e.target.querySelector('input').value.trim().toLowerCase().replace(/ /g, '_');
-  if (await api({q: 'player', name})) location.hash = `player/${name}`;
-  else document.querySelector('#home-search-error').textContent = `${display(name)} is not on the hiscores yet.`;
+  const error = document.querySelector('#home-search-error');
+  try {
+    if (await api({q: 'player', name}) || await api({q: 'track', name}) !== null) location.hash = `player/${name}`;
+    else error.textContent = `${display(name)} is not on the hiscores.`;
+  } catch (err) {error.textContent = err.message; throw err;}
 });
 route();

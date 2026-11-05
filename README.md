@@ -6,21 +6,19 @@ Inspired by anders' Lost City Labs.
 
 ## Data from the game server
 
-The game server pushes each player's hiscore rows to Labs when they log out:
+Searching for a player that Labs doesn't know yet calls `GET https://2004.lostcity.rs/api/hiscores/player/:username` with our `x-api-key`. That returns their stats and enrolls them; from then on the game website sends their hiscores on every logout:
 
 ```
-POST https://labs.lostcity.rs/ingest.php
-Authorization: Bearer <LABS_PUSH_TOKEN>
-[{"username":"detective","type":7,"level":99,"value":300450268,"date":"2026-11-03 12:15:00"}, …]
+POST https://labs.lostcity.rs/api/hiscores/callback/:username
+x-api-key: <LABS_API_KEY>
+[{"type":0,"level":1234,"value":5678901,"rank":42}, …]
 ```
-
-`type` and `value` (xp10) are the same as `/api/hiscores/player/:username`. History can be sent the same way, oldest first.
 
 ## Run
 
 - `schema.sql` creates the MySQL tables.
-- nginx serves `public/` with PHP-FPM.
+- nginx serves `public/` with PHP-FPM and rewrites `/api/hiscores/callback/(.+)` to `/ingest.php?username=$1`.
 - `php refresh.php` every 5 minutes (cron) refreshes period gains.
-- PHP reads `LABS_DB_DSN` (e.g. `mysql:host=localhost;dbname=labs`), `LABS_DB_USER`, `LABS_DB_PASS` and `LABS_PUSH_TOKEN` from the environment.
+- PHP reads `LABS_DB_DSN` (e.g. `mysql:host=localhost;dbname=labs`), `LABS_DB_USER`, `LABS_DB_PASS` and `LABS_API_KEY` from the environment.
 
 Stats update when a player logs out.

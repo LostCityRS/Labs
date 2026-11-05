@@ -6,6 +6,7 @@ $db->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
 const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 $now = (int) (microtime(true) * 1000);
+ini_set('user_agent', 'LostCityLabs (+https://labs.lostcity.rs)'); // Cloudflare rejects requests without one
 
 function safe_name(string $name): string {
     $name = strtolower(str_replace(' ', '_', trim($name)));

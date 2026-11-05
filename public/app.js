@@ -61,11 +61,12 @@ async function hiscoresView() {
   const rows = await api({q: 'hiscores'});
   return `<div class="page-heading"><div><div class="eyebrow">2004Scape</div><h1>Hiscores</h1></div>${skillSelect()}</div><section class="panel">${table(['Rank', 'Player', 'Level', 'Experience'], rows.map(r => [fmt(r.rank), link(r.name), fmt(r.level), xp(r.value)]), `${state.skill} hiscores`)}</section>`;
 }
+const icon = name => `<span class="icon" style="background-position:-${skills.indexOf(name) * 25}px 0"></span>`;
 async function recordsView() {
-  const rows = await api({q: 'records'});
-  const best = (type, period) => rows.find(r => r.type === type && r.period === period);
-  const cells = (type, period) => {const r = best(type, period); return r ? [link(r.name), `<span class="gain" title="${new Date(r.start_at).toLocaleString('en-GB')} – ${new Date(r.end_at).toLocaleString('en-GB')}">${xp(r.gain)}</span>`] : ['–', '–'];};
-  return `<div class="page-heading"><h1>XP records</h1></div><section class="panel">${table(['Skill', 'Player · 6h', 'XP · 6h', 'Player · 24h', 'XP · 24h'], skills.map(name => [name, ...cells(typeOf(name), '6h'), ...cells(typeOf(name), '24h')]), 'XP records')}</section>`;
+  const d = await api({q: 'records'});
+  const when = r => `${new Date(r.start_at).toLocaleString('en-GB')} – ${new Date(r.end_at).toLocaleString('en-GB')}`;
+  const board = (period, label) => {const [best] = d[period]; return `<div><div class="holder"><small>${label} record</small>${best ? `<strong title="${when(best)}">${xp(best.gain)}</strong>${link(best.name)}` : empty('Nobody yet.')}</div>${d[period].length ? table(['#', 'Player', 'XP'], d[period].map((r, i) => [i + 1, link(r.name), `<span class="gain" title="${when(r)}">${xp(r.gain)}</span>`]), `${state.skill} ${label} records`) : ''}</div>`;};
+  return `<div class="page-heading"><h1>XP records</h1></div><section class="panel"><nav class="skill-icons" aria-label="Skill">${skills.map(name => `<a href="#records/${name}" title="${name}"${state.skill === name ? ' aria-current="page"' : ''}>${icon(name)}<span class="sr-only">${name}</span></a>`).join('')}</nav><div class="panel-heading"><h2>${icon(state.skill)}${state.skill}</h2></div><div class="boards">${board('6h', '6 hour')}${board('24h', '24 hour')}</div></section>`;
 }
 async function render() {
   document.querySelectorAll('[data-view]').forEach(a => a.setAttribute('aria-current', a.dataset.view === state.view ? 'page' : 'false'));
@@ -77,6 +78,7 @@ const route = () => {
   const [view, name, skill] = location.hash.slice(1).split('/');
   state.view = view === 'player' && name ? 'player' : nav.some(([v]) => v === view) ? view : 'home';
   if (state.view === 'player') {state.player = decodeURIComponent(name); state.skill = skills.includes(skill) ? skill : 'Overall';}
+  if (state.view === 'records') state.skill = skills.includes(name) ? name : 'Overall';
   render();
 };
 window.addEventListener('hashchange', route);

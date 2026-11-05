@@ -20,7 +20,7 @@ strong,b{font-weight:600}
 .sidebar{border:3px ridge var(--border);background:#080a07;align-self:start}
 .sidebar nav{display:flex;flex-direction:column;gap:2px}
 .sidebar a{display:block;padding:10px 14px;text-decoration:none}
-.sidebar a[aria-current=page]{background:#4e1711 url('assets/shinystonered.jpg') center/cover no-repeat;color:#fff;border-left:2px solid var(--accent);padding-left:12px}
+.sidebar a[aria-current=page]{background:#4e1711 url('assets/shinystonered.png') center repeat-x;color:#fff;border-left:2px solid var(--accent);padding-left:12px}
 .sidebar-heading{background:#343631 url('assets/stoneback.gif');color:#fff;text-align:center;padding:9px;font-size:10px;font-weight:bold}
 .sidebar .external{font-size:11px;margin-top:20px;border-top:1px solid var(--border)}
 .page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 0 23px}

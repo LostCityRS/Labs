@@ -7,4 +7,4 @@ if (!hash_equals($env('LABS_API_KEY'), $_SERVER['HTTP_X_API_KEY'] ?? '')) {
     exit;
 }
 $stats = json_decode(file_get_contents('php://input'), true, flags: JSON_THROW_ON_ERROR);
-echo json_encode(['imported' => import_stats($db, safe_name($_GET['username'] ?? ''), $stats, $now)]);
+echo json_encode(['imported' => import_stats($db, safe_name($_GET['username'] ?? ''), $stats, $now, true)]);

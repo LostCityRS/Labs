@@ -5,4 +5,5 @@ CREATE TABLE current (player_id INT NOT NULL, type TINYINT NOT NULL, at BIGINT N
 CREATE TABLE levels (player_id INT NOT NULL, type TINYINT NOT NULL, level SMALLINT NOT NULL, prev_level SMALLINT NOT NULL, at BIGINT NOT NULL, PRIMARY KEY (player_id, type, at), KEY (level, at));
 CREATE TABLE gains (period VARCHAR(3) NOT NULL, type TINYINT NOT NULL, player_id INT NOT NULL, gain BIGINT NOT NULL, PRIMARY KEY (period, type, player_id), KEY (period, type, gain), KEY (player_id));
 CREATE TABLE records (period VARCHAR(3) NOT NULL, type TINYINT NOT NULL, player_id INT NOT NULL, gain BIGINT NOT NULL, start_at BIGINT NOT NULL, end_at BIGINT NOT NULL, PRIMARY KEY (period, type, player_id), KEY (period, type, gain));
-CREATE TABLE online (at BIGINT PRIMARY KEY, players INT NOT NULL);
+CREATE TABLE daily_observed (day BIGINT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (day, player_id));
+CREATE TABLE daily_players (day BIGINT PRIMARY KEY, started_at BIGINT NOT NULL, online INT, sampled_at BIGINT);

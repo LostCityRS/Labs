@@ -38,6 +38,15 @@ function import_stats(PDO $db, string $name, array $stats, int $at): int {
             if ($start && $value > $start['value']) $record->execute([$period, $type, $id, $value - $start['value'], $start['at'], $at]);
         }
     }
+    refresh_gains($db, $at, $id);
     $db->commit();
     return $imported;
+}
+
+// Gains change as time passes, so cron refreshes everyone; a new logout refreshes just that player.
+function refresh_gains(PDO $db, int $now, ?int $player = null): void {
+    $only = $player === null ? '' : ' AND c.player_id = ' . $player;
+    $db->exec('DELETE c FROM gains c WHERE 1' . $only);
+    $gains = $db->prepare('INSERT INTO gains SELECT ?, c.type, c.player_id, c.value - COALESCE((SELECT x.value FROM xp x WHERE x.player_id = c.player_id AND x.type = c.type AND x.at <= ? ORDER BY x.at DESC LIMIT 1), (SELECT MIN(x.value) FROM xp x WHERE x.player_id = c.player_id AND x.type = c.type)) AS gain FROM current c WHERE c.at > ?' . $only . ' HAVING gain > 0');
+    foreach (PERIODS as $period => $ms) $gains->execute([$period, $now - $ms, $now - $ms]);
 }

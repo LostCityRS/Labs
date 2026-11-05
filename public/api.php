@@ -18,10 +18,12 @@ if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period
 // Looking a player up with our key also tells the game website to send us their future logouts.
 $track = function () use ($db, $env, $now) {
     $name = safe_name($_GET['name'] ?? '');
-    $url = "https://2004.lostcity.rs/api/hiscores/player/$name";
+    // Cloudflare caches this route regardless of x-api-key; a cached reply would never enroll the player.
+    $url = "https://2004.lostcity.rs/api/hiscores/player/$name?t=$now";
     $body = file_get_contents($url, false, stream_context_create(['http' => ['header' => 'x-api-key: ' . $env('LABS_API_KEY'), 'user_agent' => 'LostCityLabs (+https://labs.lostcity.rs)']]));
-    if ($body === false) throw new RuntimeException("Fetching $url failed");
-    return $body === '' ? null : import_stats($db, $name, json_decode($body, true, flags: JSON_THROW_ON_ERROR), $now);
+    if (!$body) throw new RuntimeException("Fetching $url returned nothing");
+    $stats = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
+    return $stats ? import_stats($db, $name, $stats, $now) : null;
 };
 $result = match ($_GET['q'] ?? '') {
     'home' => [

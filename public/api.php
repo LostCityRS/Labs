@@ -15,15 +15,20 @@ $fetch = function (string $sql, array $args = []) use ($db) {
 $period = $_GET['period'] ?? '24h';
 $type = (int) ($_GET['type'] ?? 0);
 if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period $period");
-// Looking a player up with our key also tells the game website to send us their future logouts.
+// A lookup with our key enrolls the player for logout callbacks but returns no stats, so stats come from a normal lookup first.
 $track = function () use ($db, $env, $now) {
     $name = safe_name($_GET['name'] ?? '');
-    // Cloudflare caches this route regardless of x-api-key; a cached reply would never enroll the player.
-    $url = "https://2004.lostcity.rs/api/hiscores/player/$name?t=$now";
-    $body = file_get_contents($url, false, stream_context_create(['http' => ['header' => 'x-api-key: ' . $env('LABS_API_KEY'), 'user_agent' => 'LostCityLabs (+https://labs.lostcity.rs)']]));
-    if (!$body) throw new RuntimeException("Fetching $url returned nothing");
-    $stats = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-    return $stats ? import_stats($db, $name, $stats, $now) : null;
+    $get = function (array $headers) use ($name, $now) {
+        // Cloudflare caches this route regardless of x-api-key; a cached reply would never reach the game server.
+        $url = "https://2004.lostcity.rs/api/hiscores/player/$name?t=$now";
+        $body = file_get_contents($url, false, stream_context_create(['http' => ['header' => $headers, 'user_agent' => 'LostCityLabs (+https://labs.lostcity.rs)']]));
+        return $body === false ? throw new RuntimeException("Fetching $url failed: " . ($http_response_header[0] ?? 'no response')) : $body;
+    };
+    $stats = json_decode($get([]) ?: throw new RuntimeException("Hiscores lookup for $name returned nothing"), true, flags: JSON_THROW_ON_ERROR);
+    if (!$stats) return null;
+    sleep(2); // the game website allows one request per two seconds
+    $get(['x-api-key: ' . $env('LABS_API_KEY')]);
+    return import_stats($db, $name, $stats, $now);
 };
 $result = match ($_GET['q'] ?? '') {
     'home' => [

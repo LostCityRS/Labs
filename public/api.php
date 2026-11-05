@@ -18,10 +18,12 @@ if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period
 // A lookup with our key enrolls the player for logout callbacks but returns no stats, so stats come from a normal lookup first.
 $track = function () use ($db, $env, $now) {
     $name = safe_name($_GET['name'] ?? '');
-    $get = function (array $headers) use ($name, $now) {
+    $get = function (array $headers, bool $retry = true) use ($name, $now, &$get) {
         // Cloudflare caches this route regardless of x-api-key; a cached reply would never reach the game server.
         $url = "https://2004.lostcity.rs/api/hiscores/player/$name?t=$now";
         $body = file_get_contents($url, false, stream_context_create(['http' => ['header' => $headers, 'user_agent' => 'LostCityLabs (+https://labs.lostcity.rs)']]));
+        // Another search may have used the rate limit (one request per two seconds).
+        if ($body === false && $retry && str_contains($http_response_header[0] ?? '', ' 429 ')) {sleep(2); return $get($headers, false);}
         return $body === false ? throw new RuntimeException("Fetching $url failed: " . ($http_response_header[0] ?? 'no response')) : $body;
     };
     $stats = json_decode($get([]) ?: throw new RuntimeException("Hiscores lookup for $name returned nothing"), true, flags: JSON_THROW_ON_ERROR);
@@ -35,7 +37,6 @@ $result = match ($_GET['q'] ?? '') {
         'gainers' => $fetch('SELECT name, gain FROM gains JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 10', [$period, $type]),
         'newest' => $fetch('SELECT name, first_seen, c.level FROM players JOIN current c ON c.player_id = id AND c.type = 0 ORDER BY first_seen DESC LIMIT 5'),
         'nineties' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level = 99 ORDER BY at DESC LIMIT 5'),
-        'levels' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level < 99 ORDER BY at DESC LIMIT 8'),
     ],
     'track' => $track(),
     'player' => ($id = $fetch('SELECT id FROM players WHERE name = ?', [safe_name($_GET['name'] ?? '')])[0]['id'] ?? null) === null ? null : [
@@ -48,4 +49,4 @@ $result = match ($_GET['q'] ?? '') {
     default => throw new InvalidArgumentException('Unknown query'),
 };
 if ($result === null) http_response_code(404);
-echo json_encode(['updated_at' => $db->query('SELECT MAX(at) FROM xp')->fetchColumn(), 'data' => $result]);
+echo json_encode($result);

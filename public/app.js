@@ -6,23 +6,21 @@ const fmt = n => Math.floor(n).toLocaleString('en-GB');
 const xp = value => fmt(value / 10);
 const display = name => name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/[<>&"]/g, '');
 const ago = at => {const m = Math.round((Date.now() - at) / 60000); return m < 60 ? `${m}m ago` : m < 2880 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;};
-const levelXP = level => {let points = 0; for (let i = 1; i < level; i++) points += Math.floor(i + 300 * 2 ** (i / 7)); return Math.floor(points / 4);};
 let state = {view: 'home', player: '', period: '24h', skill: 'Overall'};
 const nav = [['home', 'Home'], ['hiscores', 'Hiscores'], ['records', 'Records']];
-document.body.innerHTML = `<div class="shell"><header class="masthead"><a class="brand" href="#home"><img class="mark" src="assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a><form id="search" role="search"><input aria-label="Player name" placeholder="Player name" autocomplete="off"><button type="submit">Find player</button><span id="search-error" role="status"></span></form></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Hiscores & tracking</div><nav aria-label="Main">${nav.map(([v, label]) => `<a href="#${v}" data-view="${v}">${label}</a>`).join('')}</nav><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main id="main"></main></div><footer><span id="updated"></span><span><a href="https://github.com/LostCityRS/Labs" target="_blank" rel="noopener">Source code</a> · Inspired by anders' original Lost City Labs ❤️</span></footer></div>`;
+document.body.innerHTML = `<div class="shell"><header class="masthead"><a class="brand" href="#home"><img class="mark" src="assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Hiscores & tracking</div><nav aria-label="Main">${nav.map(([v, label]) => `<a href="#${v}" data-view="${v}">${label}</a>`).join('')}</nav><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main id="main"></main></div><footer><span><a href="https://github.com/LostCityRS/Labs" target="_blank" rel="noopener">Source code</a> · Inspired by anders' original Lost City Labs ❤️</span></footer></div>`;
 const main = document.querySelector('#main');
 const api = async params => {
   const res = await fetch(`api.php?${new URLSearchParams({period: state.period, type: typeOf(state.skill), ...params})}`);
   if (!res.ok && res.status !== 404) throw new Error((await res.json()).error);
-  const {updated_at, data} = await res.json();
-  document.querySelector('#updated').textContent = updated_at ? `Hiscores last changed ${ago(updated_at)}` : 'No data imported yet';
-  return data;
+  return res.json();
 };
 const select = (label, id, options, selected) => `<label class="select-label">${label}<select id="${id}">${options.map(o => `<option ${o === selected ? 'selected' : ''}>${o}</option>`).join('')}</select></label>`;
 const skillSelect = () => select('Skill', 'skill-filter', skills, state.skill);
 const periodControl = () => `<div class="segments" aria-label="Time period">${Object.keys(periods).map(p => `<button data-period="${p}" aria-pressed="${state.period === p}">${p}</button>`).join('')}</div>`;
 const link = name => `<a href="#player/${name}">${display(name)}</a>`;
 const empty = text => `<p class="empty">${text}</p>`;
+const search = (value = '') => `<form id="search" class="panel" role="search"><div><input aria-label="Player name" placeholder="Player name" autocomplete="off" value="${value}"><button type="submit">Find player</button></div><span id="search-error" role="status"></span></form>`;
 function table(headers, rows, caption) {
   if (!rows.length) return empty('Nothing yet.');
   const wordColumn = i => headers[i].startsWith('Player') ? ' class="word-column"' : '';
@@ -49,16 +47,15 @@ function chart(points) {
 }
 async function homeView() {
   const d = await api({q: 'home'});
-  return `<h1 class="sr-only">Lost City Labs</h1><div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>${periodControl()}</div><div class="toolbar">${skillSelect()}</div>${table(['Rank', 'Player', `XP · ${state.period}`], d.gainers.map((g, i) => [i + 1, link(g.name), `<span class="gain">+${xp(g.gain)}</span>`]), 'Most XP gained')}</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>${table(['Player', 'Total level', 'First tracked'], d.newest.map(p => [link(p.name), fmt(p.level), ago(p.first_seen)]), 'Newly tracked players')}</section></div><aside><section class="panel"><h2>Recent 99s</h2>${achievements(d.nineties)}</section><section class="panel"><h2>Recent levels</h2>${achievements(d.levels)}</section></aside></div>`;
+  return `<h1 class="sr-only">Lost City Labs</h1>${search()}<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>${periodControl()}</div><div class="toolbar">${skillSelect()}</div>${table(['Rank', 'Player', `XP · ${state.period}`], d.gainers.map((g, i) => [i + 1, link(g.name), `<span class="gain">+${xp(g.gain)}</span>`]), 'Most XP gained')}</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>${table(['Player', 'Total level', 'First tracked'], d.newest.map(p => [link(p.name), fmt(p.level), ago(p.first_seen)]), 'Newly tracked players')}</section></div><aside><section class="panel"><h2>Recent 99s</h2>${achievements(d.nineties)}</section></aside></div>`;
 }
 async function playerView() {
   const d = state.player && await api({q: 'player', name: state.player});
-  if (!d) return `<div class="page-heading"><h1>${display(state.player)}</h1></div>${empty('Not tracked yet. Search for this player above to start tracking them.')}`;
+  if (!d) return `<div class="page-heading"><h1>${display(state.player)}</h1></div>${empty('Not tracked yet.')}${search(display(state.player))}`;
   const stat = type => d.stats.find(s => s.type === type);
   const overall = stat(0), type = typeOf(state.skill);
   const rows = skills.map(name => {const s = stat(typeOf(name)); return [`<a href="#player/${state.player}/${name}"${state.skill === name ? ' class="selected-skill"' : ''}>${name}</a>`, s ? fmt(s.level) : '–', s ? xp(s.value) : '–', s ? fmt(s.rank) : '–', s ? `<span class="gain">+${xp(s.gain)}</span>` : '–'];});
-  const next = d.stats.filter(s => s.type && s.level < 99).slice(0, 3).map(s => {const now = levelXP(s.level), goal = levelXP(s.level + 1), have = s.value / 10; return `<div><span>${nameOf(s.type)} <b>${s.level + 1}</b></span><progress value="${have - now}" max="${goal - now}"></progress><small>${fmt(goal - have)} XP to go</small></div>`;}).join('');
-  return `<div class="page-heading"><div><div class="eyebrow">Player</div><h1>${display(state.player)}</h1><span class="muted">Updated ${ago(Math.max(...d.stats.map(s => s.at)))}</span></div><div class="rank"><span>Overall rank</span><strong>${fmt(overall.rank)}</strong></div></div><div class="stats"><div><span>Total level</span><strong>${fmt(overall.level)}</strong></div><div><span>Total XP</span><strong>${xp(overall.value)}</strong></div><div><span>Gained · ${state.period}</span><strong class="gain">+${xp(overall.gain)}</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>${state.skill} experience</h2>${periodControl()}</div>${chart(d.history.filter(h => h.type === type))}</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2><span class="muted">Select a skill to graph</span></div>${table(['Skill', 'Level', 'Experience', 'Rank', `Gained · ${state.period}`], rows, 'Player skills')}</section><aside class="side-panels"><section class="panel"><h2>Recent levels</h2>${achievements(d.levels)}</section><section class="panel next-level"><h2>Next level</h2>${next || empty('All 99.')}</section></aside></div>`;
+  return `<div class="page-heading"><div><div class="eyebrow">Player</div><h1>${display(state.player)}</h1><span class="muted">Updated ${ago(Math.max(...d.stats.map(s => s.at)))}</span></div><div class="rank"><span>Overall rank</span><strong>${fmt(overall.rank)}</strong></div></div><div class="stats"><div><span>Total level</span><strong>${fmt(overall.level)}</strong></div><div><span>Total XP</span><strong>${xp(overall.value)}</strong></div><div><span>Gained · ${state.period}</span><strong class="gain">+${xp(overall.gain)}</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>${state.skill} experience</h2>${periodControl()}</div>${chart(d.history.filter(h => h.type === type))}</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2><span class="muted">Select a skill to graph</span></div>${table(['Skill', 'Level', 'Experience', 'Rank', `Gained · ${state.period}`], rows, 'Player skills')}</section><aside><section class="panel"><h2>Recent levels</h2>${achievements(d.levels)}</section></aside></div>`;
 }
 async function hiscoresView() {
   const rows = await api({q: 'hiscores'});

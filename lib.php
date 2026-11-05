@@ -1,17 +1,11 @@
 <?php
+require_once __DIR__ . '/data.php';
 $env = fn(string $key) => getenv($key) ?: throw new RuntimeException("$key is not set");
 $db = new PDO($env('LABS_DB_DSN'), $env('LABS_DB_USER'), getenv('LABS_DB_PASS') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 // INSERT ... SELECT otherwise locks every row it reads, so concurrent logouts and the gains refresh deadlock constantly.
 $db->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
-const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
-const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 $now = (int) (microtime(true) * 1000);
 ini_set('user_agent', 'LostCityLabs (+https://labs.lostcity.rs)'); // Cloudflare rejects requests without one
-
-function safe_name(string $name): string {
-    $name = strtolower(str_replace(' ', '_', trim($name)));
-    return preg_match('/^[a-z0-9_]{1,12}$/', $name) ? $name : throw new InvalidArgumentException("Invalid username: $name");
-}
 
 // InnoDB can still pick a deadlock victim under load; MySQL expects that transaction to be retried.
 function transaction(PDO $db, string $what, callable $work) {

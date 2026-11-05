@@ -2,6 +2,7 @@
 $env = fn(string $key) => getenv($key) ?: throw new RuntimeException("$key is not set");
 $db = new PDO($env('LABS_DB_DSN'), $env('LABS_DB_USER'), getenv('LABS_DB_PASS') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
+const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 $now = (int) (microtime(true) * 1000);
 
 function safe_name(string $name): string {
@@ -32,7 +33,7 @@ function import_stats(PDO $db, string $name, array $stats, int $at): int {
         if ($insert->rowCount() === 0) continue; // already imported
         $imported++;
         if ($prev && $type > 0 && $level > $prev['level']) $levelUp->execute([$id, $type, $level, $prev['level'], $at]);
-        foreach (PERIODS as $period => $ms) {
+        foreach (RECORDS as $period => $ms) {
             $windowStart->execute([$id, $type, $at - $ms, $at]);
             $start = $windowStart->fetch();
             if ($start && $value > $start['value']) $record->execute([$period, $type, $id, $value - $start['value'], $start['at'], $at]);

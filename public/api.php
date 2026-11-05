@@ -44,7 +44,7 @@ $result = match ($_GET['q'] ?? '') {
         'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
     ],
     'hiscores' => $fetch('SELECT name, level, value, `rank` FROM current JOIN players ON id = player_id WHERE type = ? ORDER BY level DESC, value DESC LIMIT 50', [$type]),
-    'records' => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 50', [$period, $type]),
+    'records' => $fetch('SELECT r.period, r.type, name, gain, start_at, end_at FROM records r JOIN players ON id = player_id WHERE gain = (SELECT MAX(gain) FROM records m WHERE m.period = r.period AND m.type = r.type) ORDER BY end_at'),
     default => throw new InvalidArgumentException('Unknown query'),
 };
 if ($result === null) http_response_code(404);

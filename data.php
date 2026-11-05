@@ -2,6 +2,7 @@
 const SKILLS = [0 => 'Overall', 1 => 'Attack', 2 => 'Defence', 3 => 'Strength', 4 => 'Hitpoints', 5 => 'Ranged', 6 => 'Prayer', 7 => 'Magic', 8 => 'Cooking', 9 => 'Woodcutting', 10 => 'Fletching', 11 => 'Fishing', 12 => 'Firemaking', 13 => 'Crafting', 14 => 'Smithing', 15 => 'Mining', 16 => 'Herblore', 17 => 'Agility', 18 => 'Thieving', 21 => 'Runecrafting'];
 const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
 const RECORDS = ['6h' => 21600000, '24h' => 86400000];
+require_once __DIR__ . '/ehp.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -64,19 +65,22 @@ function get_data(PDO $db, array $params, int $now) {
             'gainers' => $fetch('SELECT name, gain FROM gains JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 10', [$period, $type]),
             'newest' => $fetch('SELECT name, first_seen, c.level FROM players JOIN current c ON c.player_id = id AND c.type = 0 ORDER BY first_seen DESC LIMIT 5'),
             'nineties' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level = 99 ORDER BY at DESC LIMIT 5'),
+            'weekly' => ehp_winners($db),
         ],
         'track' => track_player($db, safe_name(parameter($params, 'name')), $now),
         'player' => ($id = $fetch('SELECT id FROM players WHERE name = ?', [safe_name(parameter($params, 'name'))])[0]['id'] ?? null) === null ? null : [
             'stats' => $fetch('SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, c.`rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?', [$period, $id]),
             'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
             'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
+            'ehp' => ehp_scores($db, (int) $id),
+            'ehp_model' => ehp_model()['id'],
         ],
         'online' => [
             'online' => $fetch('SELECT day AS at, online AS value FROM daily_players WHERE online IS NOT NULL ORDER BY day'),
             // Late-committing pre-midnight callbacks must not be frozen out of yesterday's count.
             'observed' => $fetch('SELECT d.day AS at, COUNT(o.player_id) AS value FROM daily_players d LEFT JOIN daily_observed o ON o.day = d.day WHERE d.started_at < d.day + 60000 AND d.day < ? GROUP BY d.day ORDER BY d.day', [intdiv($now, 86400000) * 86400000]),
         ],
-        'hiscores' => $fetch('SELECT name, level, value, `rank` FROM current JOIN players ON id = player_id WHERE type = ? ORDER BY level DESC, value DESC LIMIT 50', [$type]),
+        'hiscores' => $fetch('SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model FROM ehp e JOIN players p ON p.id = e.player_id JOIN current c ON c.player_id = e.player_id AND c.type = e.type WHERE e.model = ? AND e.type = ? ORDER BY e.value DESC, p.name LIMIT 50', [ehp_model()['id'], $type]),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),

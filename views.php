@@ -100,7 +100,7 @@ function ehp_pie(array $ehp, string $name): string {
 function home_view(array $s, array $d): string {
     $html = '<h1 class="sr-only">Lost City Labs</h1>' . search_form() . '<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . table(['Rank', 'Player', 'XP · ' . $s['period']], array_map(fn($g, $i) => [$i + 1, player_link($g['name']), '<span class="gain">+' . xp($g['gain']) . '</span>'], $d['gainers'], array_keys($d['gainers'])), 'Most XP gained') . '</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>' . table(['Player', 'Total level', 'First tracked'], array_map(fn($p) => [player_link($p['name']), fmt($p['level']), ago($p['first_seen'], $s['now'])], $d['newest']), 'Newly tracked players') . '</section></div><aside><section class="panel"><h2>Recent 99s</h2>' . achievements($d['nineties'], $s['now']) . '</section>';
     if (isset($d['weekly'])) {
-        $html .= '<section class="panel weekly"><h2>Top EHP</h2>';
+        $html .= '<section class="panel weekly"><h2>Top EHP</h2>' . (!$d['weekly'] ? empty_message('No weekly winners yet.') : '');
         foreach ($d['weekly'] as $r) $html .= '<div class="winner"><small>' . e($r['week']) . '</small>' . player_link($r['name']) . '<b>' . fmt($r['ehp'], 1) . ' <span>EHP</span></b></div>';
         $html .= '</section>';
     }
@@ -120,13 +120,14 @@ function player_view(array $s, ?array $d): string {
     foreach (SKILLS as $type => $name) {
         $stat = $stats[$type] ?? null;
         $row = ['<span' . ($s['skill'] === $name ? ' class="current-skill"' : '') . '>' . icon($name) . e($name) . '</span>'];
+        $row[] = $stat ? fmt($stat['level']) : '–';
         if ($ehp !== null) $row[] = isset($ehp[$type]) ? fmt($ehp[$type], 1) : '–';
-        array_push($row, $stat ? fmt($stat['level']) : '–', $stat ? xp($stat['value']) : '–', $stat ? fmt($stat['rank']) : '–', $stat ? '<span class="gain">+' . xp($stat['gain']) . '</span>' : '–');
+        array_push($row, $stat ? xp($stat['value']) : '–', $stat ? fmt($stat['rank']) : '–', $stat ? '<span class="gain">+' . xp($stat['gain']) . '</span>' : '–');
         $rows[] = $row;
     }
     $history = array_map(fn($h) => ['at' => $h['at'], 'value' => $h['value'] / 10], array_values(array_filter($d['history'], fn($h) => $h['type'] == $s['type'])));
-    $headers = $ehp === null ? ['Skill'] : ['Skill', 'EHP'];
-    array_push($headers, 'Level', 'Experience', 'Rank', 'Gained · ' . $s['period']);
+    $headers = $ehp === null ? ['Skill', 'Level'] : ['Skill', 'Level', 'EHP'];
+    array_push($headers, 'Experience', 'Rank', 'Gained · ' . $s['period']);
     return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . fmt($overall['rank']) . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . fmt($overall['level']) . '</strong></div><div><span>Total XP</span><strong>' . xp($overall['value']) . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">+' . xp($overall['gain']) . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_pie($ehp, $s['name'])) . '</aside></div>';
 }
 function hiscores_view(array $s, array $rows): string {

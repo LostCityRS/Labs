@@ -7,3 +7,5 @@ CREATE TABLE gains (period VARCHAR(3) NOT NULL, type TINYINT NOT NULL, player_id
 CREATE TABLE records (period VARCHAR(3) NOT NULL, type TINYINT NOT NULL, player_id INT NOT NULL, gain BIGINT NOT NULL, start_at BIGINT NOT NULL, end_at BIGINT NOT NULL, PRIMARY KEY (period, type, player_id), KEY (period, type, gain));
 CREATE TABLE daily_observed (day BIGINT NOT NULL, player_id INT NOT NULL, PRIMARY KEY (day, player_id));
 CREATE TABLE daily_players (day BIGINT PRIMARY KEY, started_at BIGINT NOT NULL, online INT, sampled_at BIGINT);
+CREATE TABLE ehp (model VARCHAR(64) NOT NULL, player_id INT NOT NULL, type TINYINT NOT NULL, value DOUBLE NOT NULL, PRIMARY KEY (model, player_id, type), KEY (model, type, value));
+CREATE TABLE ehp_weeks (week_at BIGINT PRIMARY KEY, start_at BIGINT NOT NULL, end_at BIGINT NOT NULL, player_id INT, gain DOUBLE NOT NULL, model VARCHAR(64) NOT NULL);

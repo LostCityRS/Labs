@@ -73,6 +73,7 @@ function import_once(PDO $db, string $name, array $stats, int $at): int {
         }
     }
     refresh_gains($db, $at, $id);
+    cache_ehp($db, $id);
     return $imported;
 }
 

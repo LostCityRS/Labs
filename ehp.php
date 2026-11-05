@@ -57,9 +57,8 @@ function calculate_ehp(array $xp10): array {
 }
 function cache_ehp(PDO $db, int $player): void {
     $stats = fetch_rows($db, 'SELECT type, value FROM current WHERE player_id = ?', [$player]);
-    $xp = array_column($stats, 'value', 'type');
-    if (!isset($xp[0])) throw new RuntimeException("Cannot project player $player without Overall stats");
-    $scores = calculate_ehp($xp);
+    if (!$stats) return;
+    $scores = calculate_ehp(array_column($stats, 'value', 'type'));
     $query = $db->prepare('INSERT INTO ehp (model, player_id, type, value) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)');
     ksort($scores);
     foreach ($scores as $type => $value) $query->execute([ehp_model()['id'], $player, $type, $value]);
@@ -71,13 +70,13 @@ function ehp_scores(PDO $db, int $player): array {
     return $scores;
 }
 function rebuild_ehp(PDO $db): void {
-    $start = microtime(true); $players = fetch_rows($db, 'SELECT id FROM players ORDER BY id');
+    $start = microtime(true); $players = fetch_rows($db, 'SELECT id FROM players p WHERE EXISTS (SELECT 1 FROM current c WHERE c.player_id = p.id) ORDER BY id');
     foreach ($players as ['id' => $id]) transaction($db, "rebuilding EHP for $id", function () use ($db, $id) {
         // Imports lock this row too, so a rebuild cannot overwrite a newer callback's score.
         fetch_rows($db, 'SELECT id FROM players WHERE id = ? FOR UPDATE', [$id]);
         cache_ehp($db, $id);
     });
-    $missing = fetch_rows($db, 'SELECT p.id FROM players p LEFT JOIN ehp e ON e.player_id = p.id AND e.type = 0 AND e.model = ? WHERE e.player_id IS NULL LIMIT 1', [ehp_model()['id']]);
+    $missing = fetch_rows($db, 'SELECT p.id FROM players p LEFT JOIN ehp e ON e.player_id = p.id AND e.type = 0 AND e.model = ? WHERE e.player_id IS NULL AND EXISTS (SELECT 1 FROM current c WHERE c.player_id = p.id) LIMIT 1', [ehp_model()['id']]);
     if ($missing) throw new RuntimeException('EHP rebuild is incomplete');
     echo 'Rebuilt ' . count($players) . ' players for ' . ehp_model()['id'] . ' in ' . round(microtime(true) - $start, 2) . "s\n";
 }

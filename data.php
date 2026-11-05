@@ -68,7 +68,7 @@ function get_data(PDO $db, array $params, int $now) {
             'weekly' => ehp_winners($db),
         ],
         'track' => track_player($db, safe_name(parameter($params, 'name')), $now),
-        'player' => ($id = $fetch('SELECT id FROM players WHERE name = ?', [safe_name(parameter($params, 'name'))])[0]['id'] ?? null) === null ? null : [
+        'player' => ($id = $fetch('SELECT id FROM players p WHERE name = ? AND EXISTS (SELECT 1 FROM current c WHERE c.player_id = p.id)', [safe_name(parameter($params, 'name'))])[0]['id'] ?? null) === null ? null : [
             'stats' => $fetch('SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, c.`rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?', [$period, $id]),
             'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
             'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
@@ -80,7 +80,7 @@ function get_data(PDO $db, array $params, int $now) {
             // Late-committing pre-midnight callbacks must not be frozen out of yesterday's count.
             'observed' => $fetch('SELECT d.day AS at, COUNT(o.player_id) AS value FROM daily_players d LEFT JOIN daily_observed o ON o.day = d.day WHERE d.started_at < d.day + 60000 AND d.day < ? GROUP BY d.day ORDER BY d.day', [intdiv($now, 86400000) * 86400000]),
         ],
-        'hiscores' => $fetch('SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model FROM ehp e JOIN players p ON p.id = e.player_id JOIN current c ON c.player_id = e.player_id AND c.type = e.type WHERE e.model = ? AND e.type = ? ORDER BY e.value DESC, p.name LIMIT 50', [ehp_model()['id'], $type]),
+        'hiscores' => $fetch('SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model FROM ehp e JOIN players p ON p.id = e.player_id LEFT JOIN current c ON c.player_id = e.player_id AND c.type = e.type WHERE e.model = ? AND e.type = ? ORDER BY e.value DESC, p.name LIMIT 50', [ehp_model()['id'], $type]),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),

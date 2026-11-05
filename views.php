@@ -109,7 +109,7 @@ function home_view(array $s, array $d): string {
 function player_view(array $s, ?array $d): string {
     if ($d === null) return '<div class="page-heading"><h1>' . display_name($s['name']) . '</h1></div>' . empty_message('Not tracked yet.') . search_form(str_replace('_', ' ', $s['name']));
     $stats = array_column($d['stats'], null, 'type');
-    $overall = $stats[0] ?? throw new RuntimeException('Player is missing Overall stats');
+    $overall = $stats[0] ?? null;
     // EHP must come from an explicit provider; XP is never silently relabelled as EHP.
     $ehp = $d['ehp'] ?? null;
     if ($ehp !== null) {
@@ -128,7 +128,7 @@ function player_view(array $s, ?array $d): string {
     $history = array_map(fn($h) => ['at' => $h['at'], 'value' => $h['value'] / 10], array_values(array_filter($d['history'], fn($h) => $h['type'] == $s['type'])));
     $headers = $ehp === null ? ['Skill', 'Level'] : ['Skill', 'Level', 'EHP'];
     array_push($headers, 'Experience', 'Rank', 'Gained · ' . $s['period']);
-    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . fmt($overall['rank']) . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . fmt($overall['level']) . '</strong></div><div><span>Total XP</span><strong>' . xp($overall['value']) . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">+' . xp($overall['gain']) . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_pie($ehp, $s['name'])) . '</aside></div>';
+    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_pie($ehp, $s['name'])) . '</aside></div>';
 }
 function hiscores_view(array $s, array $rows): string {
     $ehp = $rows && array_key_exists('ehp', $rows[0]);
@@ -137,7 +137,7 @@ function hiscores_view(array $s, array $rows): string {
         usort($rows, fn($a, $b) => $b['ehp'] <=> $a['ehp'] ?: strcmp($a['name'], $b['name']));
     }
     $cells = [];
-    foreach ($rows as $i => $r) $cells[] = array_merge([$ehp ? $i + 1 : fmt($r['rank']), player_link($r['name'])], $ehp ? [fmt($r['ehp'], 1)] : [], [fmt($r['level']), xp($r['value'])]);
+    foreach ($rows as $i => $r) $cells[] = array_merge([$ehp ? $i + 1 : fmt($r['rank']), player_link($r['name'])], $ehp ? [fmt($r['ehp'], 1)] : [], [$r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value'])]);
     return '<div class="page-heading"><h1>Hiscores</h1>' . skill_select($s) . '</div><section class="panel">' . table(array_merge(['Rank', 'Player'], $ehp ? ['EHP'] : [], ['Level', 'Experience']), $cells, $s['skill'] . ' hiscores', $ehp ? 'EHP' : null) . '</section>';
 }
 function records_view(array $s, array $d): string {

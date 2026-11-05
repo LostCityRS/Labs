@@ -44,8 +44,8 @@ $result = match ($_GET['q'] ?? '') {
         'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
         'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
     ],
-    // At most ~300 points per graph: 5-minute samples for a day, averaged buckets for longer periods.
-    'online' => $fetch('SELECT MIN(at) AS at, CAST(AVG(players) AS SIGNED) AS value FROM online WHERE at >= ? GROUP BY at DIV ? ORDER BY at', [$now - PERIODS[$period], max(300000, intdiv(PERIODS[$period], 288))]),
+    // All time in at most ~300 points: 5-minute samples at first, averaged buckets once history grows.
+    'online' => $fetch('SELECT MIN(at) AS at, CAST(AVG(players) AS SIGNED) AS value FROM online GROUP BY at DIV ? ORDER BY at', [max(300000, intdiv($now - (int) $db->query('SELECT MIN(at) FROM online')->fetchColumn(), 288))]),
     'hiscores' => $fetch('SELECT name, level, value, `rank` FROM current JOIN players ON id = player_id WHERE type = ? ORDER BY level DESC, value DESC LIMIT 50', [$type]),
     'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
     default => throw new InvalidArgumentException('Unknown query'),

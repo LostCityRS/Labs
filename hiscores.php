@@ -1,11 +1,11 @@
 <?php
 const HISCORE_BOARDS = ['level' => 'Level', 'max' => 'Road to Max', 'ehp' => 'EHP', 'xp' => 'XP'];
-const HISCORE_FILTERS = ['def1' => '1 Def', 'skiller' => 'Skiller', 'f2p' => 'F2P'];
-const MEMBER_SKILLS = [10, 16, 17, 18];
+const HISCORE_FILTERS = ['skiller' => 'Skiller'];
 
 function hiscore_options(array $params): array {
     $board = parameter($params, 'board', 'level');
     if (!isset(HISCORE_BOARDS[$board])) throw new InvalidArgumentException("Unknown hiscores view: $board");
+    foreach (['def1', 'f2p'] as $key) if (array_key_exists($key, $params)) throw new InvalidArgumentException("Unsupported hiscores filter: $key");
     $options = ['board' => $board];
     foreach (HISCORE_FILTERS as $key => $label) {
         $value = parameter($params, $key, '0');
@@ -29,7 +29,7 @@ function account_restrictions(array $stats): array {
         $upper[$type] = $r && $r['at'] == $latest ? $lower[$type] : 99;
         $xp += $r ? (int) $r['value'] : ($type === 4 ? 11540 : 0);
     }
-    $overall = $rows[0] ?? null; $spareXp = null;
+    $overall = $rows[0] ?? null;
     if ($overall && $overall['at'] == $latest) {
         $spareLevels = $overall['level'] - array_sum($lower);
         $spareXp = $overall['value'] - $xp;
@@ -37,15 +37,7 @@ function account_restrictions(array $stats): array {
         foreach ($upper as $type => &$level) $level = min($level, $lower[$type] + $spareLevels);
         unset($level);
     }
-    $def1 = $lower[2] > 1 ? false : ($upper[2] === 1 ? true : null);
-    $skiller = combat_level($lower) > 3 ? false : (combat_level($upper) === 3 ? true : null);
-    $f2p = true;
-    foreach (MEMBER_SKILLS as $type) {
-        $r = $rows[$type] ?? null;
-        if ($r && $r['value'] > 0) {$f2p = false; break;}
-        if ((!$r || $r['at'] != $latest) && $spareXp !== 0) $f2p = null;
-    }
-    return compact('def1', 'skiller', 'f2p');
+    return ['skiller' => combat_level($lower) > 3 ? false : (combat_level($upper) === 3 ? true : null)];
 }
 function cache_hiscores(PDO $db, int $player, array $stats): void {
     $flags = account_restrictions($stats);
@@ -54,8 +46,8 @@ function cache_hiscores(PDO $db, int $player, array $stats): void {
     if (isset($rows[0]) && $rows[0]['level'] == $max) {
         $maxed = fetch_rows($db, 'SELECT MIN(at) AS at FROM xp WHERE player_id = ? AND type = 0 AND level = ? AND at > (SELECT MIN(at) FROM xp WHERE player_id = ? AND type = 0 AND level < ?)', [$player, $max, $player, $max])[0]['at'];
     }
-    $db->prepare('UPDATE players SET def1 = ?, skiller = ?, f2p = ?, maxed_at = ? WHERE id = ?')->execute([
-        $flags['def1'] === null ? null : (int) $flags['def1'], $flags['skiller'] === null ? null : (int) $flags['skiller'], $flags['f2p'] === null ? null : (int) $flags['f2p'], $maxed, $player,
+    $db->prepare('UPDATE players SET skiller = ?, maxed_at = ? WHERE id = ?')->execute([
+        $flags['skiller'] === null ? null : (int) $flags['skiller'], $maxed, $player,
     ]);
 }
 function hiscores_rows(PDO $db, array $params): array {

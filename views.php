@@ -26,9 +26,9 @@ function skill_select(array $s): string {
     return $html . '</select></label><button type="submit">Apply</button></form>';
 }
 function hiscore_controls(array $s): string {
-    $html = '<form class="skill-filter hiscore-controls" action="/hiscores" method="get"><label class="select-label">View<select name="board">';
+    $html = '<form class="skill-filter hiscore-controls" action="/hiscores" method="get"><label class="select-label"><span class="sr-only">Hiscores view</span><select name="board">';
     foreach (HISCORE_BOARDS as $key => $label) $html .= '<option value="' . $key . '"' . ($s['board'] === $key ? ' selected' : '') . '>' . e($label) . '</option>';
-    $html .= '</select></label><button type="submit">Apply</button><fieldset class="hiscore-filters" title="Only accounts whose restrictions can be confirmed from recorded stats are included. Skiller means combat level 3; F2P means no members-skill XP."><legend class="sr-only">Account restrictions</legend>';
+    $html .= '</select></label><button type="submit">Apply</button><fieldset class="hiscore-filters" title="Only confirmed combat level 3 accounts are included when Skiller is selected."><legend class="sr-only">Account restrictions</legend>';
     foreach (HISCORE_FILTERS as $key => $label) $html .= '<label><input type="checkbox" name="' . $key . '" value="1"' . ($s[$key] ? ' checked' : '') . '>' . e($label) . '</label>';
     return $html . '</fieldset></form>';
 }
@@ -153,7 +153,7 @@ function hiscores_view(array $s, array $rows): string {
     }
     $headers = array_merge(['Rank', 'Name', 'Level', 'Exp', 'EHP'], $maxing ? ['Maxing date'] : []);
     $sorted = ['level' => 'Level', 'max' => 'Maxing date', 'ehp' => 'EHP', 'xp' => 'Exp'][$s['board']];
-    $body = !$rows && ($s['def1'] || $s['skiller'] || $s['f2p']) ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
+    $body = !$rows && $s['skiller'] ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
     return '<div class="page-heading hiscores-heading"><h1>Hiscores</h1>' . hiscore_controls($s) . '</div><section class="panel">' . $body . '</section>';
 }
 function records_view(array $s, array $d): string {

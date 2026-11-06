@@ -22,7 +22,7 @@ For nginx, set `index index.php`, route pages with `try_files $uri $uri/ /index.
 
 EHP uses the versioned 2004Tracker-derived benchmarks and explicit rules in `rates.json`, scored against recorded skill XP. Callbacks refresh cached scores; completed UTC weeks are finalized after a five-minute commit grace period. Run `php refresh.php --ehp` to rebuild scores after a model change. Published weekly winners retain their original model version.
 
-The same rebuild refreshes hiscores restrictions. Filters require confirmed matches; omitted stats are unknown unless Overall totals prove them. Road to Max records observed overall-maxing transitions, never a made-up date for an already-maxed first snapshot.
+The same rebuild refreshes the Skiller filter (combat level 3). Omitted stats are unknown unless Overall totals prove them. Road to Max records observed overall-maxing transitions, never a made-up date for an already-maxed first snapshot.
 
 ---
 

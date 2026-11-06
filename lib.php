@@ -38,8 +38,11 @@ function import_stats(PDO $db, string $name, array $stats, int $at, bool $observ
 function refresh_players(PDO $db, int $at, callable $online): void {
     $day = intdiv($at, 86400000) * 86400000;
     $db->prepare('INSERT INTO daily_players (day, started_at) VALUES (?, ?) ON DUPLICATE KEY UPDATE day = VALUES(day)')->execute([$day, $at]);
+    $count = $online();
+    if (!is_int($count) || $count < 0) throw new RuntimeException('Invalid online player count');
+    $db->prepare('INSERT INTO online (at, players) VALUES (?, ?) ON DUPLICATE KEY UPDATE at = VALUES(at)')->execute([$at, $count]);
+    error_log("Labs: online sample $count at $at");
     if ($at - $day < 60000) {
-        $count = $online();
         $snapshot = $db->prepare('UPDATE daily_players SET online = ?, sampled_at = ? WHERE day = ? AND online IS NULL');
         $snapshot->execute([$count, $at, $day]);
         if ($snapshot->rowCount()) error_log("Labs: midnight online snapshot $count at $at");

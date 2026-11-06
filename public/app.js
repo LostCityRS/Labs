@@ -6,18 +6,18 @@ const redirectLegacyBookmark = () => {
 redirectLegacyBookmark();
 window.addEventListener('hashchange', redirectLegacyBookmark);
 
-const showPieTooltip = e => {
-  const slice = e.target.closest('.pie-slice');
-  if (!slice) return;
-  const tip = slice.closest('.pie-wrap').querySelector('.pie-tooltip');
-  tip.textContent = slice.dataset.label;
+const showEhpTooltip = e => {
+  const slot = e.target.closest('[data-ehp]');
+  if (!slot) return;
+  const tip = slot.closest('.ehp-wrap').querySelector('.ehp-tooltip');
+  tip.textContent = slot.dataset.label;
   tip.hidden = false;
 };
-const hidePieTooltip = e => {
-  const slice = e.target.closest('.pie-slice');
-  if (slice && !slice.contains(e.relatedTarget)) slice.closest('.pie-wrap').querySelector('.pie-tooltip').hidden = true;
+const hideEhpTooltip = e => {
+  const slot = e.target.closest('[data-ehp]');
+  if (slot && !slot.contains(e.relatedTarget)) slot.closest('.ehp-wrap').querySelector('.ehp-tooltip').hidden = true;
 };
-document.addEventListener('pointerover', showPieTooltip);
-document.addEventListener('focusin', showPieTooltip);
-document.addEventListener('pointerout', hidePieTooltip);
-document.addEventListener('focusout', hidePieTooltip);
+document.addEventListener('pointerover', showEhpTooltip);
+document.addEventListener('focusin', showEhpTooltip);
+document.addEventListener('pointerout', hideEhpTooltip);
+document.addEventListener('focusout', hideEhpTooltip);

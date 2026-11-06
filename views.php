@@ -2,7 +2,6 @@
 require_once __DIR__ . '/data.php';
 const PERIOD_LABELS = ['24h' => 'Last 24 hours', '7d' => '7 days ago', '30d' => '30 days ago'];
 const NAV = ['home' => 'Home', 'hiscores' => 'Hiscores', 'records' => 'Records', 'players' => 'Players'];
-const PIE_COLORS = [1 => '#aa6652', 2 => '#7e9894', 3 => '#b28c61', 4 => '#b78060', 5 => '#87964f', 6 => '#c3b872', 7 => '#8296bb', 8 => '#ae8198', 9 => '#9b8957', 10 => '#749477', 11 => '#718d9a', 12 => '#c9965c', 13 => '#b7a77f', 14 => '#927b70', 15 => '#aaa9a1', 16 => '#5f907d', 17 => '#a78f79', 18 => '#c0785d', 21 => '#b99b74'];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -94,20 +93,18 @@ function chart(array $points, string $name, string $unit, array $s, bool $daily 
     }
     return $html . '<g class="axis"><text x="62" y="215">' . ($daily ? gmdate('j M Y', (int) ($start / 1000)) : PERIOD_LABELS[$s['period']]) . '</text><text x="720" y="215" text-anchor="end">' . ($daily ? 'Today (UTC)' : 'Now') . '</text></g></svg>';
 }
-function ehp_pie(array $ehp, string $name): string {
+function ehp_inventory(array $ehp, string $name): string {
     $skills = array_filter($ehp, fn($value, $type) => $type !== 0 && $value > 0, ARRAY_FILTER_USE_BOTH);
     if (!$skills) return empty_message('No EHP yet.');
     arsort($skills);
-    $total = array_sum($skills); $fraction = 0;
-    $point = fn($f) => (100 + 90 * cos($f * 2 * M_PI - M_PI / 2)) . ',' . (100 + 90 * sin($f * 2 * M_PI - M_PI / 2));
-    $html = '<section class="panel ehp-breakdown"><h2>EHP by skill</h2><div class="pie-wrap"><svg viewBox="0 0 200 200" role="img" aria-label="EHP by skill for ' . display_name($name) . '">';
+    $total = array_sum($skills);
+    $html = '<section class="panel ehp-breakdown"><h2>EHP by skill</h2><div class="ehp-wrap"><div class="ehp-grid" role="group" aria-label="EHP by skill for ' . display_name($name) . '">';
     foreach ($skills as $type => $value) {
-        $start = $fraction; $fraction += $value / $total;
-        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP · ' . fmt($value / $total * 100, 1) . '%';
-        $path = count($skills) === 1 ? 'M100,10 A90,90 0 1,1 100,190 A90,90 0 1,1 100,10 Z' : 'M100,100 L' . $point($start) . ' A90,90 0 ' . ($value / $total > .5 ? 1 : 0) . ',1 ' . $point($fraction) . ' Z';
-        $html .= '<g class="pie-slice" tabindex="0" data-label="' . e($label) . '" aria-label="' . e($label) . '"><path d="' . $path . '" fill="' . PIE_COLORS[$type] . '" stroke="var(--panel)" stroke-width="1"/></g>';
+        $share = $value / $total * 100;
+        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP · ' . fmt($share, 1) . '%';
+        $html .= '<div class="ehp-slot" tabindex="0" role="img" data-type="' . $type . '" data-ehp="' . $value . '" data-share="' . $share . '" data-label="' . e($label) . '" aria-label="' . e($label) . '">' . icon(SKILLS[$type]) . '<b>' . fmt($share, 1) . '%</b></div>';
     }
-    return $html . '</svg><div class="pie-tooltip" role="tooltip" hidden></div></div></section>';
+    return $html . '</div><div class="ehp-tooltip" role="tooltip" hidden></div></div></section>';
 }
 function home_view(array $s, array $d): string {
     $html = '<h1 class="sr-only">Lost City Labs</h1>' . search_form() . '<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . table(['Rank', 'Player', 'XP · ' . $s['period']], array_map(fn($g, $i) => [$i + 1, player_link($g['name']), '<span class="gain">+' . xp($g['gain']) . '</span>'], $d['gainers'], array_keys($d['gainers'])), 'Most XP gained') . '</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>' . table(['Player', 'Total level', 'First tracked'], array_map(fn($p) => [player_link($p['name']), fmt($p['level']), ago($p['first_seen'], $s['now'])], $d['newest']), 'Newly tracked players') . '</section></div><aside><section class="panel"><h2>Recent 99s</h2>' . achievements($d['nineties'], $s['now']) . '</section>';
@@ -140,7 +137,7 @@ function player_view(array $s, ?array $d): string {
     $history = array_map(fn($h) => ['at' => $h['at'], 'value' => $h['value'] / 10], array_values(array_filter($d['history'], fn($h) => $h['type'] == $s['type'])));
     $headers = $ehp === null ? ['Skill', 'Level'] : ['Skill', 'Level', 'EHP'];
     array_push($headers, 'Experience', 'Rank', 'Gained · ' . $s['period']);
-    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_pie($ehp, $s['name'])) . '</aside></div>';
+    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . display_name($s['name']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart($history, $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now']) . '</section>' . ($ehp === null ? '' : ehp_inventory($ehp, $s['name'])) . '</aside></div>';
 }
 function hiscores_view(array $s, array $rows): string {
     $maxing = $s['board'] === 'max'; $cells = [];
@@ -166,7 +163,7 @@ function records_view(array $s, array $d): string {
 }
 function players_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Players</h1></div>';
-    foreach (['observed' => ['Daily observed players', 'Distinct tracked accounts that sent updates each UTC day, finalized at 00:00. Partial days are excluded.', 'No complete days yet.'], 'online' => ['Players online at 00:00 UTC', 'All worlds, sampled once per day at midnight UTC.', 'Waiting for the first midnight snapshot.']] as $key => [$title, $note, $pending]) $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>' . e($title) . '</h2></div><p class="muted">' . e($note) . '</p>' . ($d[$key] ? chart($d[$key], $title, 'players', $s, true) : empty_message($pending)) . '</section>';
+    foreach (['observed' => ['Daily observed players', 'Tracked accounts that had XP today', 'No complete days yet.'], 'online' => ['Players online', 'Sampled at midnight UTC', 'Waiting for the first midnight snapshot.']] as $key => [$title, $note, $pending]) $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>' . e($title) . '</h2></div><p class="muted">' . e($note) . '</p>' . ($d[$key] ? chart($d[$key], $title, 'players', $s, true) : empty_message($pending)) . '</section>';
     return $html;
 }
 function guides_view(array $s, array $d): string {
@@ -179,7 +176,7 @@ function page_body(array $s, $d): string {
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (['guides' => 'EHP', 'error' => 'Error'] + NAV)[$s['view']];
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=13"><script src="/app.js?v=10" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=14"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a></header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
     foreach (NAV as $view => $label) $html .= '<a href="' . ($view === 'home' ? '/' : ($view === 'records' ? '/records/Overall' : '/' . $view)) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
     return $html . '</nav><div class="guide-menu"><div class="sidebar-heading">Guides</div><nav aria-label="Guides"><a href="/guides/ehp"' . ($s['view'] === 'guides' ? ' aria-current="page"' : '') . '>EHP</a></nav></div><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span></footer></div></body></html>';
 }

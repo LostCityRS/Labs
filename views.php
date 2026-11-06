@@ -101,8 +101,8 @@ function ehp_inventory(array $ehp, string $name): string {
     $html = '<section class="panel ehp-breakdown"><h2>EHP by skill</h2><div class="ehp-wrap"><div class="ehp-grid" role="group" aria-label="EHP by skill for ' . display_name($name) . '">';
     foreach ($skills as $type => $value) {
         $share = $value / $total * 100;
-        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP · ' . fmt($share, 1) . '%';
-        $html .= '<div class="ehp-slot" tabindex="0" role="img" data-type="' . $type . '" data-ehp="' . $value . '" data-share="' . $share . '" data-label="' . e($label) . '" aria-label="' . e($label) . '">' . icon(SKILLS[$type]) . '<b>' . fmt($share, 1) . '%</b></div>';
+        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP';
+        $html .= '<div class="ehp-slot" tabindex="0" role="img" data-type="' . $type . '" data-ehp="' . $value . '" data-share="' . $share . '" data-label="' . e($label) . '" aria-label="' . e($label . ' · ' . fmt($share, 1) . '%') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($share, 1) . '%</b></div>';
     }
     return $html . '</div><div class="ehp-tooltip" role="tooltip" hidden></div></div></section>';
 }

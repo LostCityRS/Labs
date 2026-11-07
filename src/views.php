@@ -235,7 +235,7 @@ function clan_hiscores_view(array $s, array $d): string {
         $gain = fn($m) => end($m['series'])[$s['metric']] - $m['series'][0][$s['metric']];
         $total = array_sum(array_map($gain, $members));
         $lines[] = ['label' => CLANS[$key]['name'], 'color' => CLANS[$key]['color'], 'points' => array_map(fn($p) => ['at' => $p['at'], 'value' => $p['value'] * ($s['scale'] === 'total' ? count($members) : 1)], clan_average($members, $s['metric'], true))];
-        $rows[] = ['key' => $key, 'members' => count($members), 'level' => clan_total_level($levels, $s['scale']), 'average' => $members ? $total / count($members) : 0, 'total' => $total];
+        $rows[] = ['key' => $key, 'members' => count($members), 'level' => clan_total_level($levels, 'total'), 'average' => $members ? $total / count($members) : 0, 'total' => $total];
     }
     usort($rows, fn($a, $b) => $b['level'] <=> $a['level']);
     $value = fn($v) => $s['metric'] === 'ehp' ? ehp($v) : fmt($v);

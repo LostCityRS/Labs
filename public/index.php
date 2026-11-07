@@ -3,7 +3,7 @@ require __DIR__ . '/../views.php';
 ini_set('zend.exception_ignore_args', '1');
 set_exception_handler(function (Throwable $e) {
     error_log((string) $e);
-    $status = $e instanceof AuthorizationException ? 403 : ($e instanceof OutOfBoundsException ? 404 : ($e instanceof InvalidArgumentException ? 400 : 500));
+    $status = $e instanceof LoginException ? 502 : ($e instanceof AuthorizationException ? 403 : ($e instanceof OutOfBoundsException ? 404 : ($e instanceof InvalidArgumentException ? 400 : 500)));
     http_response_code($status);
     echo document(['view' => 'error'], '<div class="page-heading"><h1>' . ($status === 500 ? 'Could not load this page' : e($e->getMessage())) . '</h1></div>' . ($status === 500 ? empty_message('The error has been logged. Please try again.') : ''));
 });

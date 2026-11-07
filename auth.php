@@ -1,6 +1,31 @@
 <?php
 const CLANS = ['crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png']];
 class AuthorizationException extends RuntimeException {}
+class LoginException extends RuntimeException {}
+
+function auth_value(string $key): string {
+    return getenv($key) ?: throw new RuntimeException("$key is not configured");
+}
+function auth_json(string $service, string $url, array $http = []): array {
+    $body = @file_get_contents($url, false, stream_context_create(['http' => $http + ['ignore_errors' => true, 'timeout' => 15, 'follow_location' => 0]]));
+    $status = isset($http_response_header[0]) && preg_match('~^HTTP/\\S+ (\\d{3}) ~', $http_response_header[0], $match) ? (int) $match[1] : 0;
+    if ($body === false || $status !== 200) throw new LoginException("$service failed (HTTP $status). Please start sign-in again.");
+    try {$data = json_decode($body, true, flags: JSON_THROW_ON_ERROR);}
+    catch (JsonException $e) {throw new LoginException("$service returned invalid JSON.");}
+    if (!is_array($data)) throw new LoginException("$service returned an invalid response.");
+    return $data;
+}
+function auth_base64(string $value): string {return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');}
+function linked_characters(array $identity): array {
+    if (!isset($identity['id'], $identity['email']) || !is_string($identity['id']) || !preg_match('/^[0-9]{1,20}$/D', $identity['id']) || !is_string($identity['email']) || !filter_var($identity['email'], FILTER_VALIDATE_EMAIL) || ($identity['verified'] ?? null) !== true) throw new AuthorizationException('Discord must provide a verified email address to find your Lost City characters.');
+    $at = time();
+    $claims = ['iss' => auth_origin('LABS_SITE_ORIGIN'), 'sub' => $identity['id'], 'iat' => $at, 'nbf' => $at, 'exp' => $at + 60, 'jti' => bin2hex(random_bytes(16))];
+    $jwt = auth_base64(json_encode(['typ' => 'JWT', 'alg' => 'HS256'])) . '.' . auth_base64(json_encode($claims));
+    $jwt .= '.' . auth_base64(hash_hmac('sha256', $jwt, auth_value('LABS_USERNAME_JWT_SECRET'), true));
+    $result = auth_json('Lost City character lookup', auth_value('LABS_USERNAME_API_URL') . '?' . http_build_query(['email' => $identity['email']]), ['header' => "Accept: application/json\r\nAuthorization: Bearer $jwt\r\n"]);
+    if (!isset($result['usernames']) || !is_array($result['usernames']) || !array_is_list($result['usernames'])) throw new LoginException('Lost City returned an invalid character list.');
+    return $result['usernames'];
+}
 
 function auth_origin(string $key): string {
     $url = getenv($key);
@@ -50,12 +75,12 @@ function site_context(PDO $db): array {
     return ['user' => $user, 'csrf' => $user ? csrf_token() : null, 'clans' => clan_map($db)];
 }
 function sync_characters(PDO $db, string $discord, array $names): void {
-    if (!preg_match('/^[0-9]{1,20}$/D', $discord) || !array_is_list($names) || count($names) > 200) throw new RuntimeException('Invalid Market identity response');
+    if (!preg_match('/^[0-9]{1,20}$/D', $discord) || !array_is_list($names) || count($names) > 200) throw new RuntimeException('Invalid Discord identity response');
     $canonical = [];
     foreach ($names as $name) {
-        if (!is_string($name)) throw new RuntimeException('Invalid Market character response');
+        if (!is_string($name)) throw new RuntimeException('Invalid Lost City character response');
         $name = safe_name($name);
-        if (isset($canonical[$name])) throw new RuntimeException('Duplicate Market character');
+        if (isset($canonical[$name])) throw new RuntimeException('Duplicate Lost City character');
         $canonical[$name] = true;
     }
     transaction($db, 'synchronizing linked characters', function () use ($db, $discord, $canonical) {
@@ -85,23 +110,26 @@ function auth_routes(PDO $db, string $path): bool {
     if (!in_array($method, $allowed, true)) {header('Allow: ' . implode(', ', $allowed)); http_response_code(405); echo document(['view' => 'error'], empty_message('Method not allowed.')); return true;}
     if ($path === '/login') {
         auth_session(true);
-        $state = bin2hex(random_bytes(32)); $verifier = bin2hex(random_bytes(32));
-        $_SESSION['login'] = ['state' => $state, 'verifier' => $verifier, 'at' => time()];
-        $challenge = rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '=');
-        header('Location: ' . auth_origin('LABS_MARKET_ORIGIN') . '/auth/labs?' . http_build_query(['state' => $state, 'code_challenge' => $challenge]), true, 302);
+        $state = bin2hex(random_bytes(32));
+        $_SESSION['login'] = ['state' => $state, 'at' => time()];
+        header('Location: ' . auth_origin('LABS_DISCORD_ORIGIN') . '/oauth2/authorize?' . http_build_query(['client_id' => auth_value('LABS_DISCORD_CLIENT_ID'), 'redirect_uri' => auth_origin('LABS_SITE_ORIGIN') . '/login/callback', 'response_type' => 'code', 'scope' => 'identify email', 'prompt' => 'none', 'state' => $state]), true, 302);
         return true;
     }
     if ($path === '/login/callback') {
         auth_session();
         $pending = $_SESSION['login'] ?? null; unset($_SESSION['login']);
-        if (!$pending || time() - $pending['at'] > 300 || !hash_equals($pending['state'], parameter($_GET, 'state')) || !preg_match('/^[a-f0-9]{64}$/D', parameter($_GET, 'code'))) throw new AuthorizationException('Invalid or expired sign-in. Please start again.');
-        $body = file_get_contents(auth_origin('LABS_MARKET_ORIGIN') . '/api/labs/token', false, stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/x-www-form-urlencoded\r\nAccept: application/json\r\n", 'content' => http_build_query(['code' => $_GET['code'], 'code_verifier' => $pending['verifier']]), 'ignore_errors' => true, 'timeout' => 15]]));
-        if ($body === false || !preg_match('~^HTTP/\S+ 200 ~', $http_response_header[0])) throw new RuntimeException('Market sign-in exchange failed');
-        $identity = json_decode($body, true, flags: JSON_THROW_ON_ERROR);
-        if (!isset($identity['discord_id'], $identity['usernames']) || !is_string($identity['discord_id']) || !is_array($identity['usernames'])) throw new RuntimeException('Incomplete Market identity response');
-        sync_characters($db, $identity['discord_id'], $identity['usernames']);
+        if (!$pending || time() - $pending['at'] > 300 || !hash_equals($pending['state'], parameter($_GET, 'state'))) throw new AuthorizationException('Invalid or expired sign-in. Please start again.');
+        if (parameter($_GET, 'error') !== '') throw new AuthorizationException('Discord sign-in was cancelled.');
+        $code = parameter($_GET, 'code');
+        if ($code === '' || strlen($code) > 512) throw new AuthorizationException('Discord did not return a valid authorization code.');
+        $discord = auth_origin('LABS_DISCORD_ORIGIN');
+        $token = auth_json('Discord token exchange', $discord . '/api/oauth2/token', ['method' => 'POST', 'header' => "Content-Type: application/x-www-form-urlencoded\r\nAccept: application/json\r\n", 'content' => http_build_query(['grant_type' => 'authorization_code', 'code' => $code, 'client_id' => auth_value('LABS_DISCORD_CLIENT_ID'), 'client_secret' => auth_value('LABS_DISCORD_CLIENT_SECRET'), 'redirect_uri' => auth_origin('LABS_SITE_ORIGIN') . '/login/callback'])]);
+        if (!isset($token['access_token']) || !is_string($token['access_token']) || !preg_match('/^[A-Za-z0-9._-]+$/D', $token['access_token'])) throw new LoginException('Discord did not return a valid access token.');
+        $identity = auth_json('Discord identity lookup', $discord . '/api/v10/users/@me', ['header' => "Accept: application/json\r\nAuthorization: Bearer {$token['access_token']}\r\n"]);
+        $names = linked_characters($identity);
+        sync_characters($db, $identity['id'], $names);
         if (!session_regenerate_id(true)) throw new RuntimeException('Could not renew the Labs session');
-        $_SESSION['user'] = ['id' => $identity['discord_id'], 'expires' => time() + 7200];
+        $_SESSION['user'] = ['id' => $identity['id'], 'expires' => time() + 7200];
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         header('Location: /settings', true, 303); return true;
     }

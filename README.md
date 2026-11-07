@@ -4,9 +4,6 @@ XP tracker for https://2004.lostcity.rs , inspired by anders' original Lost City
 
 Live at https://labs.lostcity.rs
 
-Pages are rendered by PHP with ordinary links and forms. JavaScript handles chart tooltips and redirects old hash bookmarks.
-
-
 ## Run locally
 
 Install PHP and MySQL, then run:
@@ -15,9 +12,6 @@ Install PHP and MySQL, then run:
 mysql -e 'CREATE DATABASE labs' && mysql labs < schema.sql
 LABS_DB_DSN='mysql:host=localhost;dbname=labs' LABS_DB_USER=root LABS_API_KEY=dev php -S 127.0.0.1:8080 -t public
 ```
-
-Open http://127.0.0.1:8080 and search for a player.
-
 ---
 
 Join Discord: https://discord.gg/m5Q6ZZrbPH

@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/data.php';
 const PERIOD_LABELS = ['24h' => 'Last 24 hours', '7d' => '7 days ago', '30d' => '30 days ago'];
-const NAV = ['Rankings' => ['hiscores' => 'Hiscores', 'records' => 'XP records', 'clans' => 'Clans'], 'World' => ['home' => 'Recent activity', 'stats' => 'World stats', 'players' => 'Players online'], 'Guides' => ['guides' => 'EHP rates']];
+// The unnamed first group has no heading.
+const NAV = ['' => ['home' => 'Home'], 'Rankings' => ['hiscores' => 'Hiscores', 'records' => 'XP records', 'clans' => 'Clans'], 'World' => ['stats' => 'World stats', 'players' => 'Players online'], 'Guides' => ['guides' => 'EHP rates']];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -94,6 +95,8 @@ function chart(array $lines, string $name, string $unit, array $s, bool $daily =
     $max = max(array_column($points, 'value'));
     // A single observation needs an axis range, not a second invented observation.
     if ($max == $min) {$min = max(0, $min - 1); $max++;}
+    // Whole-number EHP labels need whole-number steps, or small ranges round to one repeated label.
+    if ($unit === 'EHP') {$min = floor($min); $max = $min + 3 * max(1, ceil(($max - $min) / 3));}
     $range = $max - $min;
     $x = fn($at) => 62 + ($at - $start) / max(1, $s['now'] - $start) * 650;
     $plot = $height - 78;
@@ -190,12 +193,13 @@ function hiscores_view(array $s, array $rows): string {
     $maxing = $s['board'] === 'max'; $cells = [];
     foreach ($rows as $i => $r) {
         if (!isset($r['ehp']) || !is_numeric($r['ehp']) || !is_finite((float) $r['ehp']) || $r['ehp'] < 0) throw new RuntimeException('Hiscores contain invalid EHP');
-        $row = [$i + 1, player_link($r['name'], $s['clans']), $r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value']), ehp($r['ehp'])];
+        $row = [$i + 1, player_link($r['name'], $s['clans']), $r['level'] === null ? '–' : fmt($r['level'])];
+        array_push($row, ...($maxing ? [$r['to_max'] === null ? '–' : ehp($r['to_max'])] : [$r['value'] === null ? '–' : xp($r['value']), ehp($r['ehp'])]));
         if ($maxing) $row[] = $r['maxed_at'] === null ? '–' : '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', (int) ($r['maxed_at'] / 1000)) . '" title="First observed maxed · UTC">' . gmdate('j M Y', (int) ($r['maxed_at'] / 1000)) . '</time>';
         $cells[] = $row;
     }
-    $headers = array_merge(['Rank', 'Name', 'Level', 'Exp', 'EHP'], $maxing ? ['Maxing date'] : []);
-    $sorted = ['level' => 'Level', 'max' => 'Maxing date', 'ehp' => 'EHP', 'xp' => 'Exp'][$s['board']];
+    $headers = $maxing ? ['Rank', 'Name', 'Level', 'EHP remaining', 'Maxing date'] : ['Rank', 'Name', 'Level', 'Exp', 'EHP'];
+    $sorted = ['level' => 'Level', 'max' => 'EHP remaining', 'ehp' => 'EHP', 'xp' => 'Exp'][$s['board']];
     $body = !$rows && $s['skiller'] ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
     return '<div class="page-heading hiscores-heading"><h1>Hiscores</h1>' . hiscore_controls($s) . '</div><section class="panel">' . $body . '</section>';
 }
@@ -346,7 +350,7 @@ function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
     $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=24"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
-        $html .= '<div class="sidebar-heading">' . $group . '</div><nav aria-label="' . $group . '">';
+        $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
         $html .= '</nav>';
     }

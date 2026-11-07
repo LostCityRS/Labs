@@ -55,17 +55,32 @@ function calculate_ehp(array $xp10): array {
     $scores[0] = array_sum($scores);
     return $scores;
 }
+// Stored alongside per-skill scores; not a skill, so ehp_scores() skips it.
+const EHP_TO_MAX = -1;
+// EHP still needed to reach 99 in every skill; unknown while any skill is missing from the snapshot.
+function ehp_to_max(array $xp10): ?float {
+    $max = 13034431 * 10;
+    $skills = array_keys(array_diff_key(SKILLS, [0 => true]));
+    if (array_diff_key(array_flip($skills), $xp10)) return null;
+    $capped = [];
+    foreach ($skills as $type) $capped[$type] = min($xp10[$type], $max);
+    return max(0, calculate_ehp(array_fill_keys($skills, $max))[0] - calculate_ehp($capped)[0]);
+}
 function cache_ehp(PDO $db, int $player): void {
     $stats = fetch_rows($db, 'SELECT type, level, value, at FROM current WHERE player_id = ?', [$player]);
     if (!$stats) return;
     cache_hiscores($db, $player, $stats);
-    $scores = calculate_ehp(array_column($stats, 'value', 'type'));
+    $xp10 = array_column($stats, 'value', 'type');
+    $scores = calculate_ehp($xp10);
     $query = $db->prepare('INSERT INTO ehp (model, player_id, type, value) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE value = VALUES(value)');
     ksort($scores);
     foreach ($scores as $type => $value) $query->execute([ehp_model()['id'], $player, $type, $value]);
+    $remaining = ehp_to_max($xp10);
+    if ($remaining === null) $db->prepare('DELETE FROM ehp WHERE model = ? AND player_id = ? AND type = ?')->execute([ehp_model()['id'], $player, EHP_TO_MAX]);
+    else $query->execute([ehp_model()['id'], $player, EHP_TO_MAX, $remaining]);
 }
 function ehp_scores(PDO $db, int $player): array {
-    $rows = fetch_rows($db, 'SELECT type, value FROM ehp WHERE model = ? AND player_id = ?', [ehp_model()['id'], $player]);
+    $rows = fetch_rows($db, 'SELECT type, value FROM ehp WHERE model = ? AND player_id = ? AND type >= 0', [ehp_model()['id'], $player]);
     $scores = array_map('floatval', array_column($rows, 'value', 'type'));
     if (!isset($scores[0])) throw new RuntimeException("Missing EHP projection for player $player; run php src/refresh.php --ehp");
     return $scores;

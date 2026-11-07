@@ -58,9 +58,9 @@ function hiscores_rows(PDO $db, array $params): array {
     $max = (count(SKILLS) - 1) * 99;
     $order = match ($options['board']) {
         'level' => 'c.level DESC, c.value DESC',
-        'max' => "(c.level = $max) DESC, (p.maxed_at IS NULL), p.maxed_at, c.level DESC, c.value DESC",
+        'max' => "(c.level = $max) DESC, (p.maxed_at IS NULL), p.maxed_at, (r.value IS NULL), r.value, c.level DESC",
         'ehp' => 'e.value DESC',
         'xp' => 'c.value DESC, c.level DESC',
     };
-    return fetch_rows($db, "SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model, p.maxed_at FROM ehp e JOIN players p ON p.id = e.player_id LEFT JOIN current c ON c.player_id = e.player_id AND c.type = 0 WHERE e.model = ? AND e.type = 0$where ORDER BY $order, p.name LIMIT 50", [ehp_model()['id']]);
+    return fetch_rows($db, "SELECT p.name, c.level, c.value, c.`rank`, e.value AS ehp, e.model AS ehp_model, p.maxed_at, r.value AS to_max FROM ehp e JOIN players p ON p.id = e.player_id LEFT JOIN current c ON c.player_id = e.player_id AND c.type = 0 LEFT JOIN ehp r ON r.model = e.model AND r.player_id = e.player_id AND r.type = " . EHP_TO_MAX . " WHERE e.model = ? AND e.type = 0$where ORDER BY $order, p.name LIMIT 50", [ehp_model()['id']]);
 }

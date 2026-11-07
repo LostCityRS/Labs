@@ -1,5 +1,4 @@
 <?php
-const CLANS = ['crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png']];
 class AuthorizationException extends RuntimeException {}
 class LoginException extends RuntimeException {}
 
@@ -148,6 +147,6 @@ function auth_routes(PDO $db, string $path): bool {
         header('Location: /settings?saved=1', true, 303); return true;
     }
     $s = page_state('/settings', $_GET, (int) (microtime(true) * 1000)) + site_context($db) + ['saved' => parameter($_GET, 'saved') === '1'];
-    $profiles = fetch_rows($db, 'SELECT name, clan FROM character_clans WHERE discord_id = ? ORDER BY name', [$user['id']]);
+    $profiles = fetch_rows($db, 'SELECT cc.name, cc.clan, (SELECT MAX(x.at) FROM players p JOIN xp x ON x.player_id = p.id WHERE p.name = cc.name) AS updated_at FROM character_clans cc WHERE cc.discord_id = ? ORDER BY updated_at IS NULL, updated_at DESC, cc.name', [$user['id']]);
     echo document($s, settings_view($s, $profiles)); return true;
 }

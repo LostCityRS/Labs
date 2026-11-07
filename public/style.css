@@ -81,8 +81,20 @@ tbody tr:last-child>*{border-bottom:0}
 footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--border);margin-top:25px;padding:15px 0;font-size:10px;color:var(--muted)}
 .account-nav{display:flex;align-items:center;gap:16px;margin-left:auto;font-size:12px}
 .account-nav button{padding:0;border:0;background:none;color:var(--accent);font-size:11px;text-decoration:underline;text-underline-offset:3px}
-.clan-icon{width:16px;height:16px;margin-left:4px;vertical-align:middle;object-fit:contain}
-.settings-note{margin:10px 0 15px}.settings-save{margin-top:16px}
+.clan-icon{width:1em;height:1em;margin-left:.25em;vertical-align:-.12em;object-fit:contain}
+.settings-note{margin:10px 0 15px}
+.settings-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
+.clan-controls{display:flex;flex-wrap:wrap;gap:6px 14px}
+.legend{display:flex;gap:16px;margin:0 0 6px;padding:0;list-style:none;font-size:11px;color:var(--muted)}
+.legend li::before{content:'';display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--chart)}
+.clan-note{margin-top:12px}
+.videos{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}
+.video-main iframe{display:block;width:100%;aspect-ratio:16/9;border:0;background:#000}
+.video-main p{margin-top:8px;color:var(--heading)}
+.video-main small{display:block}
+.video-list{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto}
+.video-list a{display:grid;grid-template-columns:96px minmax(0,1fr);gap:2px 8px;font-size:11px;text-decoration:none;color:var(--heading)}
+.video-list img{grid-row:span 2;width:96px;height:54px;object-fit:cover}
 .footer-discord{margin-left:auto}
 .icon{display:inline-block;width:25px;height:25px;background:url('assets/skills.png') 0 0/500px 25px;image-rendering:pixelated;vertical-align:middle;margin-right:8px}
 .skill-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-bottom:20px}
@@ -114,5 +126,5 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .holder strong{display:block;font:32px Georgia,serif;color:var(--gain);margin:6px 0}
 .holder a{font-size:15px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-@media(max-width:900px){.layout{grid-template-columns:130px minmax(0,1fr);gap:16px}.detail-grid,.home-grid{grid-template-columns:1fr}.panel-heading{flex-wrap:wrap}.stats strong{font-size:21px}}
+@media(max-width:900px){.layout{grid-template-columns:130px minmax(0,1fr);gap:16px}.detail-grid,.home-grid,.videos{grid-template-columns:1fr}.panel-heading{flex-wrap:wrap}.stats strong{font-size:21px}}
 @media(max-width:620px){.hiscore-controls{width:100%}.boards{grid-template-columns:1fr}.skill-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.skill-tabs a{flex-direction:column;gap:3px;font-size:11px;padding:7px 3px;text-align:center}.guide-menu .sidebar-heading{display:block;text-align:left}.guide-menu nav{min-width:0}.guide-copy th:first-child{width:44px}.guide-copy th:last-child{width:72px}.notice a{margin-left:0;margin-right:12px}.shell{max-width:calc(100% - 20px);margin:18px auto}.masthead{padding:15px 8px}.brand{font-size:29px}.layout{display:block}.sidebar{border:0;margin:0 0 23px;overflow-x:auto}.sidebar nav{flex-direction:row;gap:0;min-width:max-content}.sidebar nav a,.sidebar nav a[aria-current=page]{padding:10px 11px;font-size:11px;border:0;border-bottom:2px solid transparent}.sidebar nav a[aria-current=page]{border-bottom-color:var(--accent)}.sidebar-heading,.sidebar .external{display:none}main{padding:0 10px}.page-heading h1{font-size:27px}.stats>div{padding:0 8px}.stats strong{font-size:17px}.stats span{font-size:10px}.panel{padding:12px;margin-bottom:15px}.chart{min-height:150px}.chart text,.pt .tip{font-size:24px}table{font-size:11px}th,td{padding:10px 8px}.toolbar{align-items:start;flex-direction:column}footer{padding:15px 10px}}

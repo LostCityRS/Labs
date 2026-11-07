@@ -1,0 +1,92 @@
+<?php
+const CLANS = [
+    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'Lost City launch', 'discord' => null, 'topic' => 13384],
+    'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285],
+];
+const CLAN_METRICS = ['ehp' => 'EHP', 'xp' => 'XP'];
+const CLAN_SCALES = ['average' => 'Average', 'total' => 'Total'];
+const CLAN_STEPS = ['24h' => 24, '7d' => 28, '30d' => 30];
+
+function clan_options(array $params, bool $hiscores): array {
+    $metric = parameter($params, 'metric', 'ehp');
+    if (!isset(CLAN_METRICS[$metric])) throw new InvalidArgumentException("Unknown metric: $metric");
+    $scale = $hiscores ? parameter($params, 'scale', 'average') : 'average';
+    if (!isset(CLAN_SCALES[$scale])) throw new InvalidArgumentException("Unknown scale: $scale");
+    return compact('metric', 'scale');
+}
+
+// Each tracked member's account state over the period; a skill first seen mid-period starts at its first observation.
+function clan_members(PDO $db, string $clan, string $period, int $now): array {
+    $members = fetch_rows($db, 'SELECT p.id, p.name, (SELECT c.level FROM current c WHERE c.player_id = p.id AND c.type = 0) AS level FROM character_clans cc JOIN players p ON p.name = cc.name WHERE cc.clan = ? AND EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id AND x.type > 0) ORDER BY p.name', [$clan]);
+    if (!$members) return [];
+    $start = $now - PERIODS[$period];
+    $ids = array_column($members, 'id');
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $state = []; $events = [];
+    foreach (fetch_rows($db, "SELECT x.player_id, x.type, x.value FROM xp x JOIN (SELECT player_id, type, MAX(at) AS at FROM xp WHERE player_id IN ($in) AND type > 0 AND at <= ? GROUP BY player_id, type) m USING (player_id, type, at)", [...$ids, $start]) as $r) $state[$r['player_id']][$r['type']] = $r['value'];
+    foreach (fetch_rows($db, "SELECT player_id, type, at, value FROM xp WHERE player_id IN ($in) AND type > 0 AND at > ? AND at <= ? ORDER BY at", [...$ids, $start, $now]) as $r) {
+        $state[$r['player_id']][$r['type']] ??= $r['value'];
+        $events[] = $r;
+    }
+    $times = [];
+    for ($i = 0, $steps = CLAN_STEPS[$period]; $i <= $steps; $i++) $times[] = $start + intdiv(($now - $start) * $i, $steps);
+    $series = []; $e = 0;
+    foreach ($times as $t) {
+        for (; $e < count($events) && $events[$e]['at'] <= $t; $e++) $state[$events[$e]['player_id']][$events[$e]['type']] = $events[$e]['value'];
+        foreach ($state as $id => $values) $series[$id][] = ['at' => $t, 'ehp' => calculate_ehp($values)[0], 'xp' => array_sum($values) / 10];
+    }
+    return array_map(fn($m) => $m + ['series' => $series[$m['id']] ?? throw new RuntimeException("No clan state for player {$m['id']}")], $members);
+}
+
+function clan_average(array $members, string $metric, bool $gain): array {
+    if (!$members) return [];
+    $points = [];
+    foreach ($members[0]['series'] as $i => $point) {
+        $sum = 0;
+        foreach ($members as $m) $sum += $m['series'][$i][$metric] - ($gain ? $m['series'][0][$metric] : 0);
+        $points[] = ['at' => $point['at'], 'value' => $sum / count($members)];
+    }
+    return $points;
+}
+
+function clan_videos(PDO $db, string $clan): array {
+    return fetch_rows($db, 'SELECT video_id, title, channel, published_at FROM clan_videos WHERE clan = ? AND published_at IS NOT NULL ORDER BY published_at DESC', [$clan]);
+}
+
+function youtube_video(string $id): array {
+    $page = file_get_contents("https://www.youtube.com/watch?v=$id", false, stream_context_create(['http' => ['header' => "Accept-Language: en\r\n", 'timeout' => 15]]));
+    if ($page === false) throw new RuntimeException("Fetching YouTube video $id failed: " . ($http_response_header[0] ?? 'no response'));
+    preg_match_all('/<meta itemprop="name" content="([^"]*)"/', $page, $names);
+    if (preg_match('/<meta itemprop="datePublished" content="([^"]+)"/', $page, $date) && count($names[1]) >= 2) return ['title' => html_entity_decode($names[1][0], ENT_QUOTES), 'channel' => html_entity_decode($names[1][1], ENT_QUOTES), 'published_at' => strtotime($date[1]) * 1000];
+    // Removed or private videos have no oEmbed; anything else means YouTube's page format changed.
+    @file_get_contents("https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=$id");
+    if (preg_match('~^HTTP/\S+ (401|403|404) ~', $http_response_header[0] ?? '')) return ['title' => null, 'channel' => null, 'published_at' => null];
+    throw new RuntimeException("YouTube video $id has no publish date");
+}
+
+// Videos come from the clan owner's own posts in its forum thread, so replies cannot add videos to the clan page.
+function refresh_clan_videos(PDO $db): void {
+    $errors = [];
+    foreach (CLANS as $key => $clan) {
+        try {
+            $get = fn(string $path) => json_decode(file_get_contents("https://lostcity.rs$path", false, stream_context_create(['http' => ['timeout' => 15]])) ?: throw new RuntimeException("Fetching forum $path failed: " . ($http_response_header[0] ?? 'no response')), true, flags: JSON_THROW_ON_ERROR);
+            $owner = $get("/t/{$clan['topic']}.json")['details']['created_by']['username'] ?? throw new RuntimeException("Forum topic {$clan['topic']} has no author");
+            $thread = $get("/t/{$clan['topic']}.json?username_filters=" . rawurlencode($owner))['post_stream'];
+            $posts = $thread['posts'];
+            foreach (array_chunk(array_diff($thread['stream'], array_column($posts, 'id')), 20) as $chunk) array_push($posts, ...$get("/t/{$clan['topic']}/posts.json?" . http_build_query(['post_ids' => $chunk]))['post_stream']['posts']);
+            $ids = [];
+            foreach ($posts as $post) if ($post['username'] === $owner && preg_match_all('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})~', $post['cooked'], $m)) foreach ($m[1] as $id) $ids[$id] = true;
+            $known = array_flip(array_column(fetch_rows($db, 'SELECT video_id FROM clan_videos WHERE clan = ?', [$key]), 'video_id'));
+            foreach (array_diff_key($ids, $known) as $id => $unused) {
+                $video = youtube_video($id);
+                $db->prepare('INSERT INTO clan_videos (clan, video_id, title, channel, published_at) VALUES (?, ?, ?, ?, ?)')->execute([$key, $id, $video['title'], $video['channel'], $video['published_at']]);
+                error_log("Labs: clan $key video $id " . ($video['published_at'] === null ? 'unavailable' : 'added'));
+                sleep(1);
+            }
+            foreach (array_diff_key($known, $ids) as $id => $unused) $db->prepare('DELETE FROM clan_videos WHERE clan = ? AND video_id = ?')->execute([$key, $id]);
+        } catch (Throwable $e) {
+            $errors[] = "$key: " . $e->getMessage();
+        }
+    }
+    if ($errors) throw new RuntimeException('Clan video refresh failed: ' . implode('; ', $errors));
+}

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/data.php';
 const PERIOD_LABELS = ['24h' => 'Last 24 hours', '7d' => '7 days ago', '30d' => '30 days ago'];
-const NAV = ['home' => 'Home', 'hiscores' => 'Hiscores', 'records' => 'Records', 'players' => 'Players', 'clans' => 'Clans'];
+const NAV = ['home' => 'Home', 'hiscores' => 'Hiscores', 'records' => 'Records', 'players' => 'Players', 'clans' => 'Clans', 'stats' => 'Stats'];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -21,7 +21,7 @@ function clan_icon(string $key): string {
 function clan_link(string $key): string {return '<a href="/clans/' . $key . '">' . e(CLANS[$key]['name']) . clan_icon($key) . '</a>';}
 function segments(array $s, string $key, array $options, string $label): string {
     $html = '<nav class="segments" aria-label="' . e($label) . '">';
-    foreach ($options as $value => $text) $html .= '<a href="' . url($s['canonical'], [$key => $value] + array_intersect_key($s, ['period' => 1, 'metric' => 1, 'scale' => 1])) . '"' . ($s[$key] === $value ? ' aria-current="true"' : '') . '>' . e($text) . '</a>';
+    foreach ($options as $value => $text) $html .= '<a href="' . url($s['canonical'], [$key => $value] + array_intersect_key($s, ['period' => 1, 'metric' => 1, 'scale' => 1, 'day' => 1])) . '"' . ($s[$key] === $value ? ' aria-current="true"' : '') . '>' . e($text) . '</a>';
     return $html . '</nav>';
 }
 function player_link(string $name, array $clans): string {return '<a href="/player/' . rawurlencode($name) . '">' . player_name($name, $clans) . '</a>';}
@@ -250,16 +250,69 @@ const STATS_TAB = [1, 4, 15, 3, 17, 14, 2, 16, 11, 5, 18, 8, 6, 13, 12, 7, 10, 9
 function clan_total_level(array $skills, string $scale): int {
     return array_sum(array_map(fn($sk) => virtual_level($sk[$scale]), $skills));
 }
+// $cells: type => [value, tooltip], laid out like the in-game stats tab.
+function skill_grid(array $cells): string {
+    $html = '<div class="level-grid">';
+    foreach (STATS_TAB as $type) $html .= '<div class="level-slot" tabindex="0" title="' . e($cells[$type][1]) . '">' . icon(SKILLS[$type]) . '<b>' . $cells[$type][0] . '</b></div>';
+    return $html . '</div>';
+}
 function clan_levels(array $s, array $skills, array $ehp): string {
-    $total = $s['scale'] === 'total'; $sum = clan_total_level($skills, $s['scale']); $cells = '';
+    $total = $s['scale'] === 'total'; $sum = clan_total_level($skills, $s['scale']); $cells = [];
     foreach (STATS_TAB as $type) {
         $sk = $skills[$type] ?? null;
         $level = $sk ? virtual_level($total ? $sk['total'] : $sk['average']) : null;
-        $tip = SKILLS[$type] . ($sk ? ' · ' . fmt($total ? $sk['total'] : $sk['average']) . ' XP' . ($total ? '' : ' average') : ' · no data');
-        $cells .= '<div class="level-slot" tabindex="0" title="' . e($tip) . '">' . icon(SKILLS[$type]) . '<b>' . ($level === null ? '–' : fmt($level)) . '</b></div>';
+        $cells[$type] = [$level === null ? '–' : fmt($level), SKILLS[$type] . ($sk ? ' · ' . fmt($total ? $sk['total'] : $sk['average']) . ' XP' . ($total ? '' : ' average') : ' · no data')];
     }
     $points = array_sum($ehp) / ($total || !$ehp ? 1 : count($ehp));
-    return '<section class="panel clan-levels"><div class="panel-heading"><h2>Clan levels</h2>' . segments($s, 'scale', CLAN_SCALES, 'Total or average') . '</div><div class="level-grid">' . $cells . '</div><p class="muted clan-total">Total level <b>' . fmt($sum) . '</b> · ' . CLAN_SCALES[$s['scale']] . ' EHP <b>' . ehp($points) . '</b></p></section>';
+    return '<section class="panel clan-levels"><div class="panel-heading"><h2>Clan levels</h2>' . segments($s, 'scale', CLAN_SCALES, 'Total or average') . '</div>' . skill_grid($cells) . '<p class="muted clan-total">Total level <b>' . fmt($sum) . '</b> · ' . CLAN_SCALES[$s['scale']] . ' EHP <b>' . ehp($points) . '</b></p></section>';
+}
+// A chart with numeric x (hours, percentiles) rather than time; $marker draws a labelled vertical line.
+function plot(array $points, string $name, float $xmax, array $xticks, callable $ylabel, float $ymin, ?array $marker = null): string {
+    $ys = array_column($points, 'y'); $ymax = max($ys); if ($ymax == $ymin) $ymax++;
+    $x = fn($v) => 62 + $v / $xmax * 650; $y = fn($v) => 185 - ($v - $ymin) * 148 / ($ymax - $ymin);
+    $html = '<svg class="chart" viewBox="0 0 770 226" role="img" aria-label="' . e($name) . '"><g class="grid">';
+    for ($i = 0; $i < 4; $i++) $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/><text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . e($ylabel($ymax - $i * ($ymax - $ymin) / 3)) . '</text>';
+    $html .= '</g>' . ($marker ? '<g class="marker"><line x1="' . $x($marker[0]) . '" x2="' . $x($marker[0]) . '" y1="28" y2="190"/><text x="' . $x($marker[0]) . '" y="22" text-anchor="middle">' . e($marker[1]) . '</text></g>' : '');
+    $html .= '<polyline class="xp-line" points="' . implode(' ', array_map(fn($p) => $x($p['x']) . ',' . $y($p['y']), $points)) . '"/>';
+    foreach ($points as $p) {
+        $px = $x($p['x']); $py = $y($p['y']); $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
+        $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($p['tip']) . '</text></g>';
+    }
+    foreach ($xticks as $v => $label) $html .= '<text class="axis" x="' . $x($v) . '" y="215" text-anchor="middle">' . e($label) . '</text>';
+    return $html . '</svg>';
+}
+// One bar per UTC day; today is still running, so it is drawn faded and labelled.
+function day_bars(array $days, float $today, int $now): string {
+    $bars = array_merge($days, [['at' => intdiv($now, DAY_MS) * DAY_MS, 'value' => $today, 'live' => true]]);
+    $max = max(array_column($bars, 'value')) ?: 1; $w = 650 / count($bars);
+    $html = '<svg class="chart" viewBox="0 0 770 226" role="img" aria-label="World XP gained per UTC day"><g class="grid">';
+    for ($i = 0; $i < 4; $i++) $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/><text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . fmt(($max - $i * $max / 3) / 1e6) . 'm</text>';
+    $html .= '</g>';
+    foreach ($bars as $i => $b) {
+        $h = $b['value'] / $max * 148; $x = 62 + $i * $w + $w * .15; $label = gmdate('j M', (int) ($b['at'] / 1000)) . (isset($b['live']) ? ' (so far)' : '');
+        $html .= '<g class="bar' . (isset($b['live']) ? ' live' : '') . '" tabindex="0"><rect x="' . $x . '" y="' . (185 - $h) . '" width="' . ($w * .7) . '" height="' . $h . '"><title>' . e($label . ' · ' . fmt($b['value']) . ' XP') . '</title></rect><text class="axis" x="' . ($x + $w * .35) . '" y="203" text-anchor="middle">' . e($label) . '</text></g>';
+    }
+    return $html . '</svg>';
+}
+function stats_view(array $s, array $d): string {
+    $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Since ' . gmdate('j M Y', (int) ($d['first'] / 1000)) . '</span><strong class="gain">+' . fmt($d['ever']) . '</strong></div></div>';
+    $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . day_bars($d['daily'], $d['today'], $s['now']) . '</section>';
+    $total = array_sum($d['skills']); $skills = array_filter($d['skills'], fn($v) => $v > 0); arsort($skills); $slots = '';
+    foreach ($skills as $type => $xp) $slots .= '<div class="ehp-slot" tabindex="0" role="img" aria-label="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP · ' . fmt($xp / $total * 100, 1) . '%') . '" title="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($xp / $total * 100, 1) . '%</b></div>';
+    $cells = [];
+    foreach (STATS_TAB as $type) {
+        $first = $d['first99'][$type] ?? null;
+        $cells[$type] = [fmt($d['nineties'][$type] ?? 0), SKILLS[$type] . ' · ' . fmt($d['nineties'][$type] ?? 0) . ' players with 99' . ($first ? ' · first seen reaching it: ' . ucwords(str_replace('_', ' ', $first['name'])) . ', ' . gmdate('j M Y', (int) ($first['at'] / 1000)) : '')];
+    }
+    $html .= '<div class="stats-pair"><section class="panel"><h2>Popular skills</h2><p class="muted">Share of XP gained in the last 7 days.</p><div class="ehp-grid">' . $slots . '</div></section><section class="panel clan-levels"><h2>99s</h2><p class="muted">Tracked players with 99 in each skill.</p>' . skill_grid($cells) . '<p class="muted clan-total"><b>' . fmt(array_sum($d['nineties'])) . '</b> 99s · <b>' . fmt($d['new99s']) . '</b> new in 7 days · <b>' . fmt($d['maxed']) . '</b> maxed</p></section></div>';
+    $n = count($d['totals']); $sum = array_sum($d['totals']); $share = function (float $top) use ($d, $n, $sum) {$k = max(1, (int) round($n * $top / 100)); return array_sum(array_slice($d['totals'], 0, $k)) / $sum * 100;};
+    $half = 0; for ($acc = 0; $acc < $sum / 2; $half++) $acc += $d['totals'][$half];
+    $curve = array_map(fn($p) => ['x' => $p, 'y' => $p ? $share($p) : 0, 'tip' => 'Top ' . $p . '% hold ' . fmt($p ? $share($p) : 0, 1) . '% of XP'], [0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+    $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2><p class="muted">The top 1% of ' . fmt($n) . ' tracked players hold <b class="gain">' . fmt($share(1), 1) . '%</b> of all XP and the top 10% hold <b class="gain">' . fmt($share(10), 1) . '%</b>. Half of it belongs to just ' . fmt($half) . ' players.</p>' . plot($curve, 'Share of XP held by the top players', 100, [0 => 'Top 0%', 25 => '25%', 50 => '50%', 75 => '75%', 100 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
+    $now = ($s['now'] % DAY_MS) / 3600000; $showNow = in_array($s['day'], ['all', weekday($s['now'])], true);
+    $hours = array_map(fn($r) => ['x' => (int) $r['hour'], 'y' => (float) $r['value'], 'tip' => sprintf('%02d:00 UTC · %s online on average (%d days)', $r['hour'], fmt($r['value']), $r['days'])], $d['online']);
+    $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', WEEKDAYS, 'Day of week') . '</div><p class="muted">Average players online by hour (UTC), from ' . fmt(max(array_column($d['online'], 'days') ?: [0])) . ' days of five-minute samples.</p>' . ($hours ? plot($hours, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column($hours, 'y')), $showNow ? [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))] : null) : empty_message('No samples for this day yet.')) . '</section>';
+    return $html;
 }
 function clan_view(array $s, array $d): string {
     $clan = CLANS[$s['clan']]; $metric = CLAN_METRICS[$s['metric']]; $members = $d['members'];
@@ -285,11 +338,11 @@ function account_nav(array $s): string {
     return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a></nav>';
 }
 function page_body(array $s, $d): string {
-    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d)};
+    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d)};
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['guides' => 'EHP', 'settings' => 'Settings', 'error' => 'Error'] + NAV)[$s['view']]);
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=22"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=23"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
     foreach (NAV as $view => $label) $html .= '<a href="' . ($view === 'home' ? '/' : ($view === 'records' ? '/records/Overall' : '/' . $view)) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
     return $html . '</nav><div class="guide-menu"><div class="sidebar-heading">Guides</div><nav aria-label="Guides"><a href="/guides/ehp"' . ($s['view'] === 'guides' ? ' aria-current="page"' : '') . '>EHP</a></nav></div><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span><a class="footer-discord" href="https://discord.gg/yk4eC8jB8s">Discord</a></footer></div></body></html>';
 }

@@ -142,3 +142,14 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .record-slot{flex-direction:column;gap:1px;padding:5px 1px;text-decoration:none;color:var(--gain);font-size:10px;white-space:nowrap}
 .record-slot small{font-size:9px;color:var(--muted)}
 @media(max-width:900px){.clan-split{grid-template-columns:1fr}}
+.marker line{stroke:var(--gain);stroke-dasharray:3 3}
+.marker text{fill:var(--gain);font:10px Verdana,sans-serif}
+.chart .axis{fill:var(--muted);font:10px Verdana,sans-serif}
+.stats-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.stats-pair>*{min-width:0}
+.stats-pair .muted{margin:6px 0 12px}
+.bar rect{fill:var(--chart)}
+.bar.live rect{opacity:.45}
+.graph-panel>.muted{margin-bottom:6px}
+@media(max-width:900px){.stats-pair{grid-template-columns:1fr}}
+@media(max-width:620px){.chart .axis,.marker text{font-size:24px}}

@@ -32,7 +32,7 @@ if (rawurldecode($path) !== $s['canonical']) {
     header('Location: ' . $s['canonical'] . ($query === '' ? '' : '?' . $query), true, 301);
     exit;
 }
-$query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'] === null ? 'clan-hiscores' : 'clan', default => $s['view']}, 'name' => $s['name'], 'type' => (string) $s['type'], 'period' => $s['period'], 'clan' => (string) $s['clan']];
+$query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'] === null ? 'clan-hiscores' : 'clan', default => $s['view']}, 'name' => $s['name'], 'type' => (string) $s['type'], 'period' => $s['period'], 'clan' => (string) $s['clan'], 'day' => $s['day'] ?? 'all'];
 if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
 $d = get_data($db, $query, $now);
 if ($d === null) http_response_code(404);

@@ -6,6 +6,7 @@ require_once __DIR__ . '/ehp.php';
 require_once __DIR__ . '/hiscores.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/clans.php';
+require_once __DIR__ . '/world.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -22,8 +23,8 @@ function page_state(string $uri, array $params, int $now): array {
     if (!is_string($path)) throw new InvalidArgumentException('Invalid URL');
     $path = '/' . trim(rawurldecode($path), '/');
     $parts = explode('/', substr($path, 1));
-    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player', 'settings', 'clans' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
-    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || ($view === 'clans' && (count($parts) > 2 || (isset($parts[1]) && !isset(CLANS[$parts[1]])))) || (in_array($view, ['home', 'hiscores', 'players', 'settings']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
+    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player', 'settings', 'clans', 'stats' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
+    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || ($view === 'clans' && (count($parts) > 2 || (isset($parts[1]) && !isset(CLANS[$parts[1]])))) || (in_array($view, ['home', 'hiscores', 'players', 'settings', 'stats']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
     $clan = $view === 'clans' ? $parts[1] ?? null : null;
     $period = parameter($params, 'period', $view === 'clans' ? '7d' : '24h');
     if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period: $period");
@@ -34,7 +35,7 @@ function page_state(string $uri, array $params, int $now): array {
     if ($view === 'hiscores' && $type !== 0) throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $name = $view === 'player' ? safe_name($parts[1]) : '';
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => '/records/' . $skill, 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []);
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? ['day' => isset(WEEKDAYS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown day: $day")] : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {
@@ -90,6 +91,7 @@ function get_data(PDO $db, array $params, int $now) {
         'hiscores' => hiscores_rows($db, $params),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'clans' => clan_map($db),
+        'stats' => world_stats($db, $now, isset(WEEKDAYS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown day: $day")),
         'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => $members = clan_members($db, $clan, $period, $now), 'levels' => clan_skill_xp($db, $members), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
         'clan-hiscores' => array_map(fn($key) => ['members' => $members = clan_members($db, $key, $period, $now), 'levels' => clan_skill_xp($db, $members)], array_combine(array_keys(CLANS), array_keys(CLANS))),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],

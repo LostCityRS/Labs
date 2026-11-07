@@ -159,3 +159,4 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .ehp-slot i{display:block;font-style:normal;font-size:9px;text-align:center}
 .ehp-slot .up{color:#5fbf4a}
 .ehp-slot .down{color:#d9534f}
+small.week{margin-left:6px;font-size:10px}

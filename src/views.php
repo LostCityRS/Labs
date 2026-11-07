@@ -189,12 +189,19 @@ function held_records(array $rows): string {
     }
     return $html . '</div></section>';
 }
+function week_change(?float $value, string $text, string $sign = '+', string $what = ''): string {
+    return $value !== null && round($value) > 0 ? '<small class="gain week" title="' . e($text . $what . ' in the last 7 days') . '">' . $sign . $text . '</small>' : '';
+}
 function hiscores_view(array $s, array $rows): string {
     $maxing = $s['board'] === 'max'; $cells = [];
     foreach ($rows as $i => $r) {
         if (!isset($r['ehp']) || !is_numeric($r['ehp']) || !is_finite((float) $r['ehp']) || $r['ehp'] < 0) throw new RuntimeException('Hiscores contain invalid EHP');
-        $row = [$i + 1, player_link($r['name'], $s['clans']), $r['level'] === null ? '–' : fmt($r['level'])];
-        array_push($row, ...($maxing ? [$r['to_max'] === null ? '–' : ehp($r['to_max'])] : [$r['value'] === null ? '–' : xp($r['value']), ehp($r['ehp'])]));
+        // Only the column the board is sorted by shows the 7-day change, so each board keeps one focus.
+        $w = $r['week']; $board = $s['board'];
+        $row = [$i + 1, player_link($r['name'], $s['clans']), ($r['level'] === null ? '–' : fmt($r['level'])) . ($board === 'level' ? week_change($w['level'], fmt($w['level'] ?? 0)) : '')];
+        array_push($row, ...($maxing
+            ? [($r['to_max'] === null ? '–' : ehp($r['to_max'])) . week_change($w['to_max'], ehp($w['to_max'] ?? 0), '−', ' EHP closer to max')]
+            : [($r['value'] === null ? '–' : xp($r['value'])) . ($board === 'xp' ? week_change(round(($w['xp'] ?? 0) / 1e6), fmt(round(($w['xp'] ?? 0) / 1e6)) . 'M', '+', ' XP') : ''), ehp($r['ehp']) . ($board === 'ehp' ? week_change($w['ehp'], ehp($w['ehp'] ?? 0)) : '')]));
         if ($maxing) $row[] = $r['maxed_at'] === null ? '–' : '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', (int) ($r['maxed_at'] / 1000)) . '" title="First observed maxed · UTC">' . gmdate('j M Y', (int) ($r['maxed_at'] / 1000)) . '</time>';
         $cells[] = $row;
     }
@@ -306,9 +313,8 @@ function stats_view(array $s, array $d): string {
     }
     $cells = [];
     foreach (STATS_TAB as $type) {
-        $first = $d['first99'][$type] ?? null;
         $week = $d['new99s'][7][$type] ?? 0; $month = $d['new99s'][30][$type] ?? 0;
-        $cells[$type] = ['<span class="pair">' . fmt($d['nineties'][$type] ?? 0) . ($week ? '<small class="gain">+' . fmt($week) . '</small>' : '') . '</span>', SKILLS[$type] . ' · ' . fmt($d['nineties'][$type] ?? 0) . ' players with 99 · +' . fmt($week) . ' this week · +' . fmt($month) . ' this month' . ($first ? ' · first seen reaching it: ' . ucwords(str_replace('_', ' ', $first['name'])) . ', ' . gmdate('j M Y', (int) ($first['at'] / 1000)) : '')];
+        $cells[$type] = ['<span class="pair">' . fmt($d['nineties'][$type] ?? 0) . ($week ? '<small class="gain">+' . fmt($week) . '</small>' : '') . '</span>', SKILLS[$type] . ' · ' . fmt($d['nineties'][$type] ?? 0) . ' players with 99 · +' . fmt($week) . ' this week · +' . fmt($month) . ' this month'];
     }
     $html .= '<div class="stats-pair"><section class="panel"><h2>Popular skills</h2><p class="muted">Share of XP gained in the last 7 days.</p><div class="ehp-grid">' . $slots . '</div></section><section class="panel clan-levels"><h2>99s</h2><p class="muted">Tracked players with 99 in each skill.</p>' . skill_grid($cells) . '<p class="muted clan-total"><b>' . fmt(array_sum($d['nineties'])) . '</b> 99s · <b class="gain">+' . fmt(array_sum($d['new99s'][7])) . '</b> this week · <b>' . fmt($d['maxed']) . '</b> maxed</p></section></div>';
     $n = count($d['totals']); $sum = array_sum($d['totals']); $share = function (float $top) use ($d, $n, $sum) {$k = max(1, (int) round($n * $top / 100)); return array_sum(array_slice($d['totals'], 0, $k)) / $sum * 100;};
@@ -348,7 +354,7 @@ function page_body(array $s, $d): string {
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=24"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=25"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

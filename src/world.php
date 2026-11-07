@@ -53,7 +53,6 @@ function world_stats(PDO $db, int $now, string $weekday): array {
         'players' => count($totals),
         'totals' => $totals,
         'nineties' => array_map('intval', array_column(fetch_rows($db, 'SELECT type, COUNT(*) AS n FROM current WHERE type > 0 AND level >= 99 GROUP BY type'), 'n', 'type')),
-        'first99' => array_column(fetch_rows($db, 'SELECT l.type, p.name, l.at FROM levels l JOIN players p ON p.id = l.player_id WHERE l.level = 99 AND l.at = (SELECT MIN(o.at) FROM levels o WHERE o.type = l.type AND o.level = 99)'), null, 'type'),
         'new99s' => array_map(fn($days) => array_map('intval', array_column(fetch_rows($db, 'SELECT type, COUNT(*) AS n FROM levels WHERE level = 99 AND at >= ? GROUP BY type', [$now - $days * DAY_MS]), 'n', 'type')), [7 => 7, 30 => 30]),
         'previous' => previous_week($db, $today),
         'maxed' => (int) $db->query('SELECT COUNT(*) FROM current WHERE type = 0 AND level >= ' . ((count(SKILLS) - 1) * 99))->fetchColumn(),

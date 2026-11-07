@@ -88,7 +88,7 @@ function get_data(PDO $db, array $params, int $now) {
             // Late-committing pre-midnight callbacks must not be frozen out of yesterday's count.
             'observed' => $fetch('SELECT d.day AS at, COUNT(o.player_id) AS value FROM daily_players d LEFT JOIN daily_observed o ON o.day = d.day WHERE d.started_at < d.day + 60000 AND d.day < ? GROUP BY d.day ORDER BY d.day', [intdiv($now, 86400000) * 86400000]),
         ],
-        'hiscores' => hiscores_rows($db, $params),
+        'hiscores' => hiscores_rows($db, $params, $now),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'clans' => clan_map($db),
         'stats' => world_stats($db, $now, isset(WEEKDAYS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown day: $day")),

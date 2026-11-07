@@ -15,9 +15,9 @@ function transaction(PDO $db, string $what, callable $work) {
             $result = $work();
             $db->commit();
             return $result;
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
             if ($db->inTransaction()) $db->rollBack();
-            if ($e->getCode() !== '40001' || $try === 5) throw $e;
+            if (!($e instanceof PDOException) || $e->getCode() !== '40001' || $try === 5) throw $e;
             error_log("Labs: deadlock $what, retry $try");
             usleep(random_int(20000, 200000));
         }

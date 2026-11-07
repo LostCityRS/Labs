@@ -9,4 +9,5 @@ CREATE TABLE daily_observed (day BIGINT NOT NULL, player_id INT NOT NULL, PRIMAR
 CREATE TABLE online (at BIGINT PRIMARY KEY, players INT NOT NULL);
 CREATE TABLE daily_players (day BIGINT PRIMARY KEY, started_at BIGINT NOT NULL, online INT, sampled_at BIGINT);
 CREATE TABLE ehp (model VARCHAR(64) NOT NULL, player_id INT NOT NULL, type TINYINT NOT NULL, value DOUBLE NOT NULL, PRIMARY KEY (model, player_id, type), KEY (model, type, value));
+CREATE TABLE character_clans (name VARCHAR(12) PRIMARY KEY, discord_id VARCHAR(20) NOT NULL, clan VARCHAR(16), KEY (discord_id));
 CREATE TABLE ehp_weeks (week_at BIGINT PRIMARY KEY, start_at BIGINT NOT NULL, end_at BIGINT NOT NULL, player_id INT, gain DOUBLE NOT NULL, model VARCHAR(64) NOT NULL);

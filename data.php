@@ -4,6 +4,7 @@ const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
 const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 require_once __DIR__ . '/ehp.php';
 require_once __DIR__ . '/hiscores.php';
+require_once __DIR__ . '/auth.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -20,8 +21,8 @@ function page_state(string $uri, array $params, int $now): array {
     if (!is_string($path)) throw new InvalidArgumentException('Invalid URL');
     $path = '/' . trim(rawurldecode($path), '/');
     $parts = explode('/', substr($path, 1));
-    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
-    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || (in_array($view, ['home', 'hiscores', 'players']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
+    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player', 'settings' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
+    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || (in_array($view, ['home', 'hiscores', 'players', 'settings']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
     $period = parameter($params, 'period', '24h');
     if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period: $period");
     $defaultSkill = match ($view) {'player' => $parts[2] ?? 'Overall', 'records' => $parts[1] ?? 'Overall', 'guides' => 'Agility', default => 'Overall'};
@@ -84,6 +85,7 @@ function get_data(PDO $db, array $params, int $now) {
         ],
         'hiscores' => hiscores_rows($db, $params),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
+        'clans' => clan_map($db),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),
     };

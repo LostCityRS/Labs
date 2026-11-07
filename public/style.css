@@ -167,3 +167,4 @@ small.week{margin-left:6px;font-size:10px}
 .day-lines .legend input:disabled+span{cursor:default}
 .day-lines .legend input:focus-visible+span{outline:2px solid var(--accent);outline-offset:3px}
 .day-lines:has(input[value=weekday]:not(:checked)) .line-weekday,.day-lines:has(input[value=saturday]:not(:checked)) .line-saturday,.day-lines:has(input[value=sunday]:not(:checked)) .line-sunday,.day-lines:has(input[value=holiday]:not(:checked)) .line-holiday{display:none}
+.main-skill .icon{transform:scale(1.2);transform-origin:left center;margin-right:14px;vertical-align:-2px}

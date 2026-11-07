@@ -50,18 +50,15 @@ function clan_average(array $members, string $metric, bool $gain): array {
 }
 
 function clan_videos(PDO $db, string $clan): array {
-    return fetch_rows($db, 'SELECT video_id, title, channel, published_at FROM clan_videos WHERE clan = ? AND published_at IS NOT NULL ORDER BY published_at DESC', [$clan]);
+    return fetch_rows($db, 'SELECT video_id, title, channel, shared_at FROM clan_videos WHERE clan = ? AND title IS NOT NULL ORDER BY shared_at DESC', [$clan]);
 }
 
+// YouTube serves its bot wall to our server, but oEmbed still answers; removed or private videos return 401/403/404.
 function youtube_video(string $id): array {
-    $page = file_get_contents("https://www.youtube.com/watch?v=$id", false, stream_context_create(['http' => ['header' => "Accept-Language: en\r\n", 'timeout' => 15]]));
-    if ($page === false) throw new RuntimeException("Fetching YouTube video $id failed: " . ($http_response_header[0] ?? 'no response'));
-    preg_match_all('/<meta itemprop="name" content="([^"]*)"/', $page, $names);
-    if (preg_match('/<meta itemprop="datePublished" content="([^"]+)"/', $page, $date) && count($names[1]) >= 2) return ['title' => html_entity_decode($names[1][0], ENT_QUOTES), 'channel' => html_entity_decode($names[1][1], ENT_QUOTES), 'published_at' => strtotime($date[1]) * 1000];
-    // Removed or private videos have no oEmbed; anything else means YouTube's page format changed.
-    @file_get_contents("https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v=$id");
-    if (preg_match('~^HTTP/\S+ (401|403|404) ~', $http_response_header[0] ?? '')) return ['title' => null, 'channel' => null, 'published_at' => null];
-    throw new RuntimeException("YouTube video $id has no publish date");
+    $body = @file_get_contents('https://www.youtube.com/oembed?format=json&url=' . rawurlencode("https://www.youtube.com/watch?v=$id"), false, stream_context_create(['http' => ['timeout' => 15]]));
+    if ($body === false && preg_match('~^HTTP/\S+ (401|403|404) ~', $http_response_header[0] ?? '')) return ['title' => null, 'channel' => null];
+    $video = json_decode($body ?: throw new RuntimeException("YouTube oEmbed for $id failed: " . ($http_response_header[0] ?? 'no response')), true, flags: JSON_THROW_ON_ERROR);
+    return ['title' => $video['title'] ?? throw new RuntimeException("YouTube oEmbed for $id has no title"), 'channel' => $video['author_name'] ?? null];
 }
 
 // Videos come from the clan owner's own posts in its forum thread, so replies cannot add videos to the clan page.
@@ -74,16 +71,19 @@ function refresh_clan_videos(PDO $db): void {
             $thread = $get("/t/{$clan['topic']}.json?username_filters=" . rawurlencode($owner))['post_stream'];
             $posts = $thread['posts'];
             foreach (array_chunk(array_diff($thread['stream'], array_column($posts, 'id')), 20) as $chunk) array_push($posts, ...$get("/t/{$clan['topic']}/posts.json?" . http_build_query(['post_ids' => $chunk]))['post_stream']['posts']);
-            $ids = [];
-            foreach ($posts as $post) if ($post['username'] === $owner && preg_match_all('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})~', $post['cooked'], $m)) foreach ($m[1] as $id) $ids[$id] = true;
-            $known = array_flip(array_column(fetch_rows($db, 'SELECT video_id FROM clan_videos WHERE clan = ?', [$key]), 'video_id'));
-            foreach (array_diff_key($ids, $known) as $id => $unused) {
-                $video = youtube_video($id);
-                $db->prepare('INSERT INTO clan_videos (clan, video_id, title, channel, published_at) VALUES (?, ?, ?, ?, ?)')->execute([$key, $id, $video['title'], $video['channel'], $video['published_at']]);
-                error_log("Labs: clan $key video $id " . ($video['published_at'] === null ? 'unavailable' : 'added'));
-                sleep(1);
+            $shared = [];
+            foreach ($posts as $post) {
+                if ($post['username'] !== $owner || !preg_match_all('~(?:youtube\.com/(?:watch\?v=|embed/|shorts/)|youtu\.be/)([A-Za-z0-9_-]{11})~', $post['cooked'], $m)) continue;
+                // Several videos in one post keep their posted order instead of tying.
+                foreach (array_unique($m[1]) as $i => $id) $shared[$id] ??= (int) (strtotime($post['created_at']) * 1000) + $i;
             }
-            foreach (array_diff_key($known, $ids) as $id => $unused) $db->prepare('DELETE FROM clan_videos WHERE clan = ? AND video_id = ?')->execute([$key, $id]);
+            $known = array_flip(array_column(fetch_rows($db, 'SELECT video_id FROM clan_videos WHERE clan = ?', [$key]), 'video_id'));
+            foreach (array_diff_key($shared, $known) as $id => $at) {
+                $video = youtube_video($id);
+                $db->prepare('INSERT INTO clan_videos (clan, video_id, title, channel, shared_at) VALUES (?, ?, ?, ?, ?)')->execute([$key, $id, $video['title'], $video['channel'], $at]);
+                error_log("Labs: clan $key video $id " . ($video['title'] === null ? 'unavailable' : 'added'));
+            }
+            foreach (array_diff_key($known, $shared) as $id => $unused) $db->prepare('DELETE FROM clan_videos WHERE clan = ? AND video_id = ?')->execute([$key, $id]);
         } catch (Throwable $e) {
             $errors[] = "$key: " . $e->getMessage();
         }

@@ -13,7 +13,7 @@ const CLAN_STEPS = ['24h' => 24, '7d' => 28, '30d' => 30];
 function clan_options(array $params, bool $hiscores): array {
     $metric = parameter($params, 'metric', 'ehp');
     if (!isset(CLAN_METRICS[$metric])) throw new InvalidArgumentException("Unknown metric: $metric");
-    $scale = $hiscores ? parameter($params, 'scale', 'average') : 'average';
+    $scale = parameter($params, 'scale', $hiscores ? 'average' : 'total');
     if (!isset(CLAN_SCALES[$scale])) throw new InvalidArgumentException("Unknown scale: $scale");
     return compact('metric', 'scale');
 }
@@ -52,6 +52,23 @@ function clan_members(PDO $db, string $clan, string $period, int $now): array {
         foreach ($state as $id => $values) $series[$id][] = ['at' => $t, 'ehp' => calculate_ehp($values)[0], 'xp' => array_sum($values) / 10];
     }
     return array_map(fn($m) => $m + ['series' => $series[$m['id']] ?? throw new RuntimeException("No clan state for player {$m['id']}")], $members);
+}
+
+function virtual_level(float $xp): int {
+    if (!is_finite($xp) || $xp < 0) throw new RuntimeException('Invalid XP for level');
+    for ($level = 1, $sum = 0; ; $level++) {
+        $sum += floor($level + 300 * 2 ** ($level / 7));
+        if (floor($sum / 4) > $xp) return $level;
+    }
+}
+
+// Total and per-member average XP for each skill, over members who have that skill recorded.
+function clan_skill_xp(PDO $db, array $members): array {
+    if (!$members) return [];
+    $ids = array_column($members, 'id');
+    $skills = [];
+    foreach (fetch_rows($db, 'SELECT type, SUM(value) AS xp10, COUNT(*) AS members FROM current WHERE type > 0 AND player_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') GROUP BY type', $ids) as $r) $skills[$r['type']] = ['total' => $r['xp10'] / 10, 'average' => $r['xp10'] / 10 / $r['members']];
+    return $skills;
 }
 
 function clan_average(array $members, string $metric, bool $gain): array {

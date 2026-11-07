@@ -90,7 +90,7 @@ function get_data(PDO $db, array $params, int $now) {
         'hiscores' => hiscores_rows($db, $params),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'clans' => clan_map($db),
-        'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => clan_members($db, $clan, $period, $now), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
+        'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => $members = clan_members($db, $clan, $period, $now), 'levels' => clan_skill_xp($db, $members), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
         'clan-hiscores' => array_map(fn($key) => clan_members($db, $key, $period, $now), array_combine(array_keys(CLANS), array_keys(CLANS))),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),

@@ -18,12 +18,6 @@ LABS_DB_DSN='mysql:host=localhost;dbname=labs' LABS_DB_USER=root LABS_API_KEY=de
 
 Open http://127.0.0.1:8080 and search for a player.
 
-For nginx, set `index index.php`, route pages with `try_files $uri $uri/ /index.php$is_args$args;`, and include `index.php` alongside `api.php` and `ingest.php` in the PHP-FPM handler. Run `php refresh.php` every five minutes on a UTC cron schedule, including 00:00, with the same environment.
-
-EHP uses the versioned 2004Tracker-derived benchmarks and explicit rules in `rates.json`, scored against recorded skill XP. Callbacks refresh cached scores; completed UTC weeks are finalized after a five-minute commit grace period. Run `php refresh.php --ehp` to rebuild scores after a model change. Published weekly winners retain their original model version.
-
-The same rebuild refreshes the Skiller filter (combat level 3). Omitted stats are unknown unless Overall totals prove them. Road to Max records observed overall-maxing transitions, never a made-up date for an already-maxed first snapshot.
-
 ---
 
 Join Discord: https://discord.gg/m5Q6ZZrbPH

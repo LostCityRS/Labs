@@ -79,6 +79,7 @@ tbody tr:last-child>*{border-bottom:0}
 .dense .chart-point{opacity:0}
 .dense .pt:hover .chart-point,.dense .pt:focus .chart-point{opacity:1}
 footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--border);margin-top:25px;padding:15px 0;font-size:10px;color:var(--muted)}
+.footer-discord{margin-left:auto}
 .icon{display:inline-block;width:25px;height:25px;background:url('assets/skills.png') 0 0/500px 25px;image-rendering:pixelated;vertical-align:middle;margin-right:8px}
 .skill-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-bottom:20px}
 .skill-tabs a{display:flex;align-items:center;gap:6px;padding:8px;font-size:12px;background:var(--panel);text-align:left;color:inherit;text-decoration:none;border:1px solid var(--border)}

@@ -191,16 +191,17 @@ function guides_view(array $s, array $d): string {
     return '<div class="page-heading"><h1>EHP</h1></div>' . skill_tabs($s, true) . '<section class="panel guide-copy"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div>' . ($cells ? table(['Level', 'Method', 'XP/h'], $cells, $s['skill'] . ' rates') : empty_message('Passive combat XP.')) . '</section><p class="guide-credit">Based on 2004Tracker by ' . player_link('pasta', $s['clans']) . '</p>';
 }
 function settings_view(array $s, array $profiles): string {
-    $body = '<div class="page-heading"><h1>Settings</h1></div><section class="panel"><h2>Character clans</h2><p class="muted settings-note">Choose a clan for each linked Lost City character. Its icon will appear beside that character throughout Labs.</p>';
+    $body = '<div class="page-heading"><h1>Settings</h1></div><section class="panel"><h2>Character clans</h2>';
     if ($s['saved']) $body .= '<p class="gain" role="status">Settings saved.</p>';
-    if (!$profiles) return $body . empty_message('No linked characters. Link your characters to Discord in Lost City, then refresh them here.') . '<a href="/login">Refresh linked characters</a></section>';
+    $logout = '<form class="logout" action="/logout" method="post"><input type="hidden" name="csrf" value="' . e($s['csrf']) . '"><button type="submit">Logout</button></form>';
+    if (!$profiles) return $body . empty_message('No linked characters. Link your characters to Discord in Lost City, then refresh them here.') . '<a href="/login">Refresh linked characters</a></section>' . $logout;
     $rows = [];
     foreach ($profiles as $p) {
         $select = '<select name="clans[' . e($p['name']) . ']" aria-label="Clan for ' . display_name($p['name']) . '"><option value=""' . ($p['clan'] === null ? ' selected' : '') . '>None</option>';
         foreach (CLANS as $key => $clan) $select .= '<option value="' . $key . '"' . ($p['clan'] === $key ? ' selected' : '') . '>' . e($clan['name']) . '</option>';
-        $rows[] = [player_link($p['name'], $s['clans']), $p['updated_at'] === null ? 'Not tracked' : ago($p['updated_at'], $s['now']), $select . '</select>'];
+        $rows[] = [player_link($p['name'], $s['clans']), $select . '</select>'];
     }
-    return $body . '<form action="/settings" method="post"><input type="hidden" name="csrf" value="' . e($s['csrf']) . '">' . table(['Player', 'XP updated', 'Clan'], $rows, 'Your linked characters') . '<div class="settings-actions"><a href="/login">Refresh linked characters</a><button type="submit">Save settings</button></div></form></section>';
+    return $body . '<form class="settings-form" action="/settings" method="post"><input type="hidden" name="csrf" value="' . e($s['csrf']) . '">' . table(['Player', 'Clan'], $rows, 'Your linked characters') . '<div class="settings-actions"><a href="/login">Refresh linked characters</a><button type="submit">Save settings</button></div></form></section>' . $logout;
 }
 function clan_hiscores_view(array $s, array $d): string {
     $metric = CLAN_METRICS[$s['metric']]; $lines = []; $rows = [];
@@ -215,7 +216,7 @@ function clan_hiscores_view(array $s, array $d): string {
     $cells = array_map(fn($r, $i) => [$i + 1, clan_link($r['key']), fmt($r['members']), '<span class="gain">+' . $value($r['average']) . '</span>', '<span class="gain">+' . $value($r['total']) . '</span>'], $rows, array_keys($rows));
     $legend = '<ul class="legend">' . implode('', array_map(fn($key) => '<li style="--chart:' . e(CLANS[$key]['color']) . '">' . e(CLANS[$key]['name']) . '</li>', array_keys(CLANS))) . '</ul>';
     $controls = segments($s, 'scale', CLAN_SCALES, 'Average or total') . segments($s, 'metric', CLAN_METRICS, 'Metric') . segments($s, 'period', array_combine(array_keys(PERIODS), array_keys(PERIODS)), 'Time period');
-    return '<div class="page-heading"><h1>Clans</h1></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained' . ($s['scale'] === 'average' ? ' per member' : '') . '</h2><div class="clan-controls">' . $controls . '</div></div>' . $legend . chart($lines, CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained', $metric, $s) . '</section><section class="panel">' . table(['Rank', 'Clan', 'Members', 'Average ' . $metric, 'Total ' . $metric], $cells, 'Clan hiscores', ($s['scale'] === 'average' ? 'Average ' : 'Total ') . $metric) . '<p class="muted clan-note">Gains over ' . e($s['period']) . ' by tracked characters whose owners chose the clan in Settings.</p></section>';
+    return '<div class="page-heading"><h1>Clans</h1></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained' . ($s['scale'] === 'average' ? ' per member' : '') . '</h2><div class="clan-controls">' . $controls . '</div></div>' . $legend . chart($lines, CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained', $metric, $s) . '</section><section class="panel">' . table(['Rank', 'Clan', 'Members', 'Average ' . $metric, 'Total ' . $metric], $cells, 'Clan hiscores', ($s['scale'] === 'average' ? 'Average ' : 'Total ') . $metric) . '</section>';
 }
 function clan_view(array $s, array $d): string {
     $clan = CLANS[$s['clan']]; $metric = CLAN_METRICS[$s['metric']]; $members = $d['members'];
@@ -238,14 +239,14 @@ function clan_view(array $s, array $d): string {
 function account_nav(array $s): string {
     if (!array_key_exists('user', $s)) return '';
     if ($s['user'] === null) return '<nav class="account-nav" aria-label="Account"><a href="/login">Login</a></nav>';
-    return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a><form action="/logout" method="post"><input type="hidden" name="csrf" value="' . e($s['csrf']) . '"><button type="submit">Logout</button></form></nav>';
+    return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a></nav>';
 }
 function page_body(array $s, $d): string {
     return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d)};
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['guides' => 'EHP', 'settings' => 'Settings', 'error' => 'Error'] + NAV)[$s['view']]);
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=17"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=18"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
     foreach (NAV as $view => $label) $html .= '<a href="' . ($view === 'home' ? '/' : ($view === 'records' ? '/records/Overall' : '/' . $view)) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
     return $html . '</nav><div class="guide-menu"><div class="sidebar-heading">Guides</div><nav aria-label="Guides"><a href="/guides/ehp"' . ($s['view'] === 'guides' ? ' aria-current="page"' : '') . '>EHP</a></nav></div><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span><a class="footer-discord" href="https://discord.gg/yk4eC8jB8s">Discord</a></footer></div></body></html>';
 }

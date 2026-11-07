@@ -78,16 +78,16 @@ tbody tr:last-child>*{border-bottom:0}
 .pt:hover .tip,.pt:focus .tip{display:block}
 .dense .chart-point{opacity:0}
 .dense .pt:hover .chart-point,.dense .pt:focus .chart-point{opacity:1}
-footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--border);margin-top:25px;padding:15px 0;font-size:10px;color:var(--muted)}
+footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--border);margin-top:25px;padding:15px 0;font-size:12px;color:var(--muted)}
 .account-nav{display:flex;align-items:center;gap:16px;margin-left:auto;font-size:12px}
-.account-nav button{padding:0;border:0;background:none;color:var(--accent);font-size:11px;text-decoration:underline;text-underline-offset:3px}
 .clan-icon{width:1em;height:1em;margin-left:.25em;vertical-align:-.12em;object-fit:contain}
-.settings-note{margin:10px 0 15px}
+.settings-form{margin-top:10px}
+.settings-form td:last-child,.settings-form th:last-child{text-align:right;padding-right:0}
 .settings-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px}
+.logout{text-align:right}
 .clan-controls{display:flex;flex-wrap:wrap;gap:6px 14px}
 .legend{display:flex;gap:16px;margin:0 0 6px;padding:0;list-style:none;font-size:11px;color:var(--muted)}
 .legend li::before{content:'';display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--chart)}
-.clan-note{margin-top:12px}
 .videos{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:16px}
 .video-main iframe{display:block;width:100%;aspect-ratio:16/9;border:0;background:#000}
 .video-main p{margin-top:8px;color:var(--heading)}

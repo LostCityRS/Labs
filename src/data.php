@@ -77,6 +77,8 @@ function get_data(PDO $db, array $params, int $now) {
             'stats' => $fetch('SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, c.`rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?', [$period, $id]),
             'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
             'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
+            // Same top-five boards as the records page; rank 1 is the record holder.
+            'records' => $fetch('SELECT * FROM (SELECT r.period, r.type, r.gain, r.start_at, r.end_at, (SELECT COUNT(*) + 1 FROM records o WHERE o.period = r.period AND o.type = r.type AND o.gain > r.gain) AS place FROM records r WHERE r.player_id = ?) t WHERE place <= 5 ORDER BY place, type, period', [$id]),
             'ehp' => ehp_scores($db, (int) $id),
             'ehp_model' => ehp_model()['id'],
         ],

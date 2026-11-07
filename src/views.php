@@ -6,6 +6,7 @@ const NAV = ['home' => 'Home', 'hiscores' => 'Hiscores', 'records' => 'Records',
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
 function xp($value): string {return fmt($value / 10);}
+function ehp($value): string {return fmt(round($value));}
 function display_name(string $name): string {return e(ucwords(str_replace('_', ' ', $name)));}
 function url(string $path, array $params = []): string {return e($path . ($params ? '?' . http_build_query($params) : ''));}
 function player_name(string $name, array $clans): string {
@@ -91,7 +92,7 @@ function chart(array $lines, string $name, string $unit, array $s, bool $daily =
     $x = fn($at) => 62 + ($at - $start) / max(1, $s['now'] - $start) * 650;
     $y = fn($value) => 185 - ($value - $min) * 148 / $range;
     [$scale, $suffix] = $max >= 1e6 ? [1e6, 'm'] : ($max >= 1e4 ? [1e3, 'k'] : [1, '']);
-    $decimals = (int) min(1, max(0, ceil(log10($scale * 3 / $range))));
+    $decimals = $unit === 'EHP' ? 0 : (int) min(1, max(0, ceil(log10($scale * 3 / $range))));
     $html = '<svg class="chart' . (count($points) > 60 ? ' dense' : '') . '" viewBox="0 0 770 226" role="img" aria-label="' . e($name) . '"><g class="grid">';
     $lastLabel = null;
     for ($i = 0; $i < 4; $i++) {
@@ -107,7 +108,7 @@ function chart(array $lines, string $name, string $unit, array $s, bool $daily =
         foreach ($l['points'] as $p) {
             $px = $x($p['at']); $py = $y($p['value']);
             $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
-            $tip = (isset($l['label']) ? $l['label'] . ': ' : '') . fmt($p['value'], $unit === 'EHP' ? 1 : 0) . ' ' . $unit . ' · ' . gmdate($daily ? 'j M Y' : 'j M H:i', (int) ($p['at'] / 1000)) . ' UTC';
+            $tip = (isset($l['label']) ? $l['label'] . ': ' : '') . fmt($unit === 'EHP' ? round($p['value']) : $p['value']) . ' ' . $unit . ' · ' . gmdate($daily ? 'j M Y' : 'j M H:i', (int) ($p['at'] / 1000)) . ' UTC';
             $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($tip) . '</text></g>';
         }
         $html .= '</g>';
@@ -122,7 +123,7 @@ function ehp_inventory(array $ehp, string $name): string {
     $html = '<section class="panel ehp-breakdown"><h2>EHP by skill</h2><div class="ehp-wrap"><div class="ehp-grid" role="group" aria-label="EHP by skill for ' . display_name($name) . '">';
     foreach ($skills as $type => $value) {
         $share = $value / $total * 100;
-        $label = SKILLS[$type] . ' · ' . fmt($value, 1) . ' EHP';
+        $label = SKILLS[$type] . ' · ' . ehp($value) . ' EHP';
         $html .= '<div class="ehp-slot" tabindex="0" role="img" data-type="' . $type . '" data-ehp="' . $value . '" data-share="' . $share . '" data-label="' . e($label) . '" aria-label="' . e($label . ' · ' . fmt($share, 1) . '%') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($share, 1) . '%</b></div>';
     }
     return $html . '</div><div class="ehp-tooltip" role="tooltip" hidden></div></div></section>';
@@ -131,7 +132,7 @@ function home_view(array $s, array $d): string {
     $html = '<h1 class="sr-only">Lost City Labs</h1>' . search_form() . '<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . table(['Rank', 'Player', 'XP · ' . $s['period']], array_map(fn($g, $i) => [$i + 1, player_link($g['name'], $s['clans']), '<span class="gain">+' . xp($g['gain']) . '</span>'], $d['gainers'], array_keys($d['gainers'])), 'Most XP gained') . '</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>' . table(['Player', 'Total level', 'First tracked'], array_map(fn($p) => [player_link($p['name'], $s['clans']), fmt($p['level']), ago($p['first_seen'], $s['now'])], $d['newest']), 'Newly tracked players') . '</section></div><aside><section class="panel"><h2>Recent 99s</h2>' . achievements($d['nineties'], $s['now'], $s['clans']) . '</section>';
     if (isset($d['weekly'])) {
         $html .= '<section class="panel weekly"><h2>Top EHP</h2>' . (!$d['weekly'] ? empty_message('No weekly winners yet.') : '');
-        foreach ($d['weekly'] as $r) $html .= '<div class="winner"><small>' . e($r['week']) . '</small>' . player_link($r['name'], $s['clans']) . '<b>' . fmt($r['ehp'], 1) . ' <span>EHP</span></b></div>';
+        foreach ($d['weekly'] as $r) $html .= '<div class="winner"><small>' . e($r['week']) . '</small>' . player_link($r['name'], $s['clans']) . '<b>' . ehp($r['ehp']) . ' <span>EHP</span></b></div>';
         $html .= '</section>';
     }
     return $html . '</aside></div>';
@@ -151,20 +152,26 @@ function player_view(array $s, ?array $d): string {
         $stat = $stats[$type] ?? null;
         $row = ['<span' . ($s['skill'] === $name ? ' class="current-skill"' : '') . '>' . icon($name) . e($name) . '</span>'];
         $row[] = $stat ? fmt($stat['level']) : '–';
-        if ($ehp !== null) $row[] = isset($ehp[$type]) ? fmt($ehp[$type], 1) : '–';
+        if ($ehp !== null) $row[] = isset($ehp[$type]) ? ehp($ehp[$type]) : '–';
         array_push($row, $stat ? xp($stat['value']) : '–', $stat ? fmt($stat['rank']) : '–', $stat ? '<span class="gain">+' . xp($stat['gain']) . '</span>' : '–');
         $rows[] = $row;
     }
     $history = array_map(fn($h) => ['at' => $h['at'], 'value' => $h['value'] / 10], array_values(array_filter($d['history'], fn($h) => $h['type'] == $s['type'])));
     $headers = $ehp === null ? ['Skill', 'Level'] : ['Skill', 'Level', 'EHP'];
     array_push($headers, 'Experience', 'Rank', 'Gained · ' . $s['period']);
-    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . player_name($s['name'], $s['clans']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart([['points' => $history]], $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now'], $s['clans']) . '</section>' . ($ehp === null ? '' : ehp_inventory($ehp, $s['name'])) . '</aside></div>';
+    return '<div class="page-heading"><div><div class="eyebrow">Player</div><h1>' . player_name($s['name'], $s['clans']) . '</h1><span class="muted">Updated ' . ago(max(array_column($d['stats'], 'at')), $s['now']) . '</span></div><div class="rank"><span>Overall rank</span><strong>' . ($overall ? fmt($overall['rank']) : '–') . '</strong></div></div><div class="stats"><div><span>Total level</span><strong>' . ($overall ? fmt($overall['level']) : '–') . '</strong></div><div><span>Total XP</span><strong>' . ($overall ? xp($overall['value']) : '–') . '</strong></div><div><span>Gained · ' . e($s['period']) . '</span><strong class="gain">' . ($overall ? '+' . xp($overall['gain']) : '–') . '</strong></div></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . e($s['skill']) . ' experience</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . chart([['points' => $history]], $s['skill'] . ' XP', 'XP', $s) . '</section><div class="detail-grid"><section class="panel skills-panel"><div class="panel-heading"><h2>Skills</h2></div>' . table($headers, $rows, 'Player skills') . '</section><aside><section class="panel"><h2>Recent levels</h2>' . achievements($d['levels'], $s['now'], $s['clans']) . '</section>' . ($ehp === null ? '' : ehp_inventory($ehp, $s['name'])) . '</aside></div>' . held_records($d['records']);
+}
+function held_records(array $rows): string {
+    if (!$rows) return '';
+    $when = fn($r) => gmdate('j M Y H:i', (int) ($r['start_at'] / 1000)) . ' – ' . gmdate('j M Y H:i', (int) ($r['end_at'] / 1000)) . ' UTC';
+    $cells = array_map(fn($r) => ['<a href="' . url('/records/' . SKILLS[$r['type']]) . '">' . icon(SKILLS[$r['type']]) . e(SKILLS[$r['type']]) . '</a>', e($r['period']), $r['place'] == 1 ? '<span class="gain">Record</span>' : '#' . $r['place'], '<span class="gain" title="' . e($when($r)) . '">' . xp($r['gain']) . '</span>', gmdate('j M Y', (int) ($r['end_at'] / 1000))], $rows);
+    return '<section class="panel skills-panel held-records"><div class="panel-heading"><h2>Held records</h2></div>' . table(['Skill', 'Window', 'Place', 'XP', 'Set'], $cells, 'Held records') . '</section>';
 }
 function hiscores_view(array $s, array $rows): string {
     $maxing = $s['board'] === 'max'; $cells = [];
     foreach ($rows as $i => $r) {
         if (!isset($r['ehp']) || !is_numeric($r['ehp']) || !is_finite((float) $r['ehp']) || $r['ehp'] < 0) throw new RuntimeException('Hiscores contain invalid EHP');
-        $row = [$i + 1, player_link($r['name'], $s['clans']), $r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value']), fmt($r['ehp'], 1)];
+        $row = [$i + 1, player_link($r['name'], $s['clans']), $r['level'] === null ? '–' : fmt($r['level']), $r['value'] === null ? '–' : xp($r['value']), ehp($r['ehp'])];
         if ($maxing) $row[] = $r['maxed_at'] === null ? '–' : '<time datetime="' . gmdate('Y-m-d\TH:i:s\Z', (int) ($r['maxed_at'] / 1000)) . '" title="First observed maxed · UTC">' . gmdate('j M Y', (int) ($r['maxed_at'] / 1000)) . '</time>';
         $cells[] = $row;
     }
@@ -218,7 +225,7 @@ function clan_hiscores_view(array $s, array $d): string {
         $rows[] = ['key' => $key, 'members' => count($members), 'average' => $members ? $total / count($members) : 0, 'total' => $total];
     }
     usort($rows, fn($a, $b) => $b[$s['scale']] <=> $a[$s['scale']]);
-    $value = fn($v) => $s['metric'] === 'ehp' ? fmt($v, 1) : fmt($v);
+    $value = fn($v) => $s['metric'] === 'ehp' ? ehp($v) : fmt($v);
     $cells = array_map(fn($r, $i) => [$i + 1, clan_link($r['key']), fmt($r['members']), '<span class="gain">+' . $value($r['average']) . '</span>', '<span class="gain">+' . $value($r['total']) . '</span>'], $rows, array_keys($rows));
     $legend = '<ul class="legend">' . implode('', array_map(fn($key) => '<li style="--chart:' . e(CLANS[$key]['color']) . '">' . e(CLANS[$key]['name']) . '</li>', array_keys(CLANS))) . '</ul>';
     $controls = segments($s, 'scale', CLAN_SCALES, 'Average or total') . segments($s, 'metric', CLAN_METRICS, 'Metric') . segments($s, 'period', array_combine(array_keys(PERIODS), array_keys(PERIODS)), 'Time period');
@@ -229,7 +236,7 @@ function clan_view(array $s, array $d): string {
     $about = array_filter([$clan['established'] === null ? null : 'Established ' . e($clan['established']), $clan['discord'] === null ? null : '<a href="' . e($clan['discord']) . '">Discord</a>', $clan['topic'] === null ? null : '<a href="https://lostcity.rs/t/' . $clan['topic'] . '">Forum thread</a>']);
     $html = '<div class="page-heading"><div><div class="eyebrow">Clan</div><h1>' . e($clan['name']) . clan_icon($s['clan']) . '</h1>' . ($about ? '<span class="muted">' . implode(' · ', $about) . '</span>' : '') . '</div></div>';
     $average = clan_average($members, $s['metric'], false); $gained = clan_average($members, $s['metric'], true);
-    $value = fn($v) => $s['metric'] === 'ehp' ? fmt($v, 1) : fmt($v);
+    $value = fn($v) => $s['metric'] === 'ehp' ? ehp($v) : fmt($v);
     $html .= '<div class="stats"><div><span>Tracked members</span><strong>' . fmt(count($members)) . '</strong></div><div><span>Average ' . $metric . '</span><strong>' . ($average ? $value(end($average)['value']) : '–') . '</strong></div><div><span>Average gained · ' . e($s['period']) . '</span><strong class="gain">' . ($gained ? '+' . $value(end($gained)['value']) : '–') . '</strong></div></div>';
     if ($videos = $d['videos']) {
         $first = array_shift($videos);
@@ -239,7 +246,7 @@ function clan_view(array $s, array $d): string {
     }
     $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>Average ' . $metric . ' per member</h2><div class="clan-controls">' . segments($s, 'metric', CLAN_METRICS, 'Metric') . segments($s, 'period', array_combine(array_keys(PERIODS), array_keys(PERIODS)), 'Time period') . '</div></div>' . chart([['points' => $average]], 'Average ' . $metric, $metric, $s) . '</section>';
     usort($members, fn($a, $b) => end($b['series'])['ehp'] <=> end($a['series'])['ehp']);
-    $cells = array_map(fn($m) => [player_link($m['name'], $s['clans']), $m['level'] === null ? '–' : fmt($m['level']), fmt(end($m['series'])['ehp'], 1), '<span class="gain">+' . $value(end($m['series'])[$s['metric']] - $m['series'][0][$s['metric']]) . '</span>'], $members);
+    $cells = array_map(fn($m) => [player_link($m['name'], $s['clans']), $m['level'] === null ? '–' : fmt($m['level']), ehp(end($m['series'])['ehp']), '<span class="gain">+' . $value(end($m['series'])[$s['metric']] - $m['series'][0][$s['metric']]) . '</span>'], $members);
     return $html . '<section class="panel"><h2>Members</h2>' . table(['Player', 'Total level', 'EHP', $metric . ' gained · ' . $s['period']], $cells, $clan['name'] . ' members', 'EHP') . '</section>';
 }
 function account_nav(array $s): string {

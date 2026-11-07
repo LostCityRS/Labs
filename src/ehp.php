@@ -67,7 +67,7 @@ function cache_ehp(PDO $db, int $player): void {
 function ehp_scores(PDO $db, int $player): array {
     $rows = fetch_rows($db, 'SELECT type, value FROM ehp WHERE model = ? AND player_id = ?', [ehp_model()['id'], $player]);
     $scores = array_map('floatval', array_column($rows, 'value', 'type'));
-    if (!isset($scores[0])) throw new RuntimeException("Missing EHP projection for player $player; run php refresh.php --ehp");
+    if (!isset($scores[0])) throw new RuntimeException("Missing EHP projection for player $player; run php src/refresh.php --ehp");
     return $scores;
 }
 function rebuild_ehp(PDO $db): void {

@@ -1,5 +1,5 @@
 <?php
-require __DIR__ . '/../views.php';
+require __DIR__ . '/../src/views.php';
 ini_set('zend.exception_ignore_args', '1');
 set_exception_handler(function (Throwable $e) {
     error_log((string) $e);
@@ -7,7 +7,7 @@ set_exception_handler(function (Throwable $e) {
     http_response_code($status);
     echo document(['view' => 'error'], '<div class="page-heading"><h1>' . ($status === 500 ? 'Could not load this page' : e($e->getMessage())) . '</h1></div>' . ($status === 500 ? empty_message('The error has been logged. Please try again.') : ''));
 });
-require __DIR__ . '/../lib.php';
+require __DIR__ . '/../src/lib.php';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if (auth_routes($db, $path)) exit;
 if ($path === '/search' && $_SERVER['REQUEST_METHOD'] === 'POST') {

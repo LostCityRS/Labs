@@ -49,7 +49,7 @@ function clan_members(PDO $db, string $clan, string $period, int $now): array {
     $series = []; $e = 0;
     foreach ($times as $t) {
         for (; $e < count($events) && $events[$e]['at'] <= $t; $e++) $state[$events[$e]['player_id']][$events[$e]['type']] = $events[$e]['value'];
-        foreach ($state as $id => $values) $series[$id][] = ['at' => $t, 'ehp' => calculate_ehp($values)[0], 'xp' => array_sum($values) / 10];
+        foreach ($state as $id => $values) $series[$id][] = ['at' => $t, 'ehp' => calculate_ehp($values)[0], 'xp' => array_sum($values) / 10, 'levels' => array_sum(array_map(fn($xp) => min(99, virtual_level($xp / 10)), $values))];
     }
     return array_map(fn($m) => $m + ['series' => $series[$m['id']] ?? throw new RuntimeException("No clan state for player {$m['id']}")], $members);
 }

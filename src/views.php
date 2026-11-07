@@ -255,17 +255,17 @@ function settings_view(array $s, array $profiles): string {
 function clan_hiscores_view(array $s, array $d): string {
     $metric = CLAN_METRICS[$s['metric']]; $lines = []; $rows = [];
     foreach ($d as $key => ['members' => $members, 'levels' => $levels]) {
-        $gain = fn($m) => end($m['series'])[$s['metric']] - $m['series'][0][$s['metric']];
-        $total = array_sum(array_map($gain, $members));
+        $total = in_array(null, array_column($members, 'level'), true) || !$members ? null : array_sum(array_column($members, 'level'));
+        $gain = array_sum(array_map(fn($m) => end($m['series'])['levels'] - $m['series'][0]['levels'], $members));
         $lines[] = ['label' => CLANS[$key]['name'], 'color' => CLANS[$key]['color'], 'points' => array_map(fn($p) => ['at' => $p['at'], 'value' => $p['value'] * ($s['scale'] === 'total' ? count($members) : 1)], clan_average($members, $s['metric'], true))];
-        $rows[] = ['key' => $key, 'members' => count($members), 'level' => clan_total_level($levels, 'total'), 'average' => $members ? $total / count($members) : 0, 'total' => $total];
+        $rows[] = ['key' => $key, 'members' => count($members), 'level' => clan_total_level($levels, 'total'), 'average' => $total === null ? null : $total / count($members), 'total' => $total, 'gain' => $gain / ($s['scale'] === 'average' && $members ? count($members) : 1)];
     }
-    usort($rows, fn($a, $b) => $b['level'] <=> $a['level']);
-    $value = fn($v) => $s['metric'] === 'ehp' ? ehp($v) : fmt($v);
-    $cells = array_map(fn($r, $i) => [$i + 1, clan_link($r['key']), fmt($r['members']), fmt($r['level']), '<span class="gain">+' . $value($r[$s['scale']]) . '</span>'], $rows, array_keys($rows));
+    $average = $s['scale'] === 'average'; $sorted = $average ? 'Average total' : 'Clan level'; $sort = $average ? 'average' : 'level';
+    usort($rows, fn($a, $b) => ($a[$sort] === null) <=> ($b[$sort] === null) ?: $b[$sort] <=> $a[$sort]);
+    $cells = array_map(fn($r, $i) => array_merge([$i + 1, clan_link($r['key']), fmt($r['members'])], $average ? [$r['average'] === null ? '–' : fmt($r['average'], 1)] : [fmt($r['level']), $r['total'] === null ? '–' : fmt($r['total'])], ['<span class="gain">' . ($r['gain'] < 0 ? '−' : '+') . fmt(abs($r['gain']), $average ? 1 : 0) . '</span>']), $rows, array_keys($rows));
     $legend = '<ul class="legend">' . implode('', array_map(fn($key) => '<li style="--chart:' . e(CLANS[$key]['color']) . '">' . e(CLANS[$key]['name']) . '</li>', array_keys(CLANS))) . '</ul>';
     $controls = segments($s, 'scale', CLAN_SCALES, 'Average or total') . segments($s, 'metric', CLAN_METRICS, 'Metric') . segments($s, 'period', array_combine(array_keys(PERIODS), array_keys(PERIODS)), 'Time period');
-    return '<div class="page-heading"><h1>Clans</h1></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained' . ($s['scale'] === 'average' ? ' per member' : '') . '</h2><div class="clan-controls">' . $controls . '</div></div>' . $legend . chart($lines, CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained', $metric, $s) . '</section><section class="panel">' . table(['Rank', 'Clan', 'Members', 'Total level', 'Gained'], $cells, 'Clan hiscores', 'Total level') . '</section>';
+    return '<div class="page-heading"><h1>Clans</h1></div><section class="panel graph-panel"><div class="panel-heading"><h2>' . CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained' . ($s['scale'] === 'average' ? ' per member' : '') . '</h2><div class="clan-controls">' . $controls . '</div></div>' . $legend . chart($lines, CLAN_SCALES[$s['scale']] . ' ' . $metric . ' gained', $metric, $s) . '</section><section class="panel">' . table(array_merge(['Rank', 'Clan', 'Members'], $average ? ['Average total'] : ['Clan level', 'Clan total level'], ['Gained']), $cells, 'Clan hiscores', $sorted) . '</section>';
 }
 // The 2004 stats tab, read left to right.
 const STATS_TAB = [1, 4, 15, 3, 17, 14, 2, 16, 11, 5, 18, 8, 6, 13, 12, 7, 10, 9, 21];

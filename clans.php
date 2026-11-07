@@ -1,6 +1,6 @@
 <?php
 const CLANS = [
-    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'Lost City launch', 'discord' => null, 'topic' => 13384],
+    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'at Lost City launch', 'discord' => null, 'topic' => 13384],
     'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285],
 ];
 const CLAN_METRICS = ['ehp' => 'EHP', 'xp' => 'XP'];

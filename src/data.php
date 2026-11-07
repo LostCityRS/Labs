@@ -7,6 +7,7 @@ require_once __DIR__ . '/hiscores.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/clans.php';
 require_once __DIR__ . '/world.php';
+require_once __DIR__ . '/cards.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;

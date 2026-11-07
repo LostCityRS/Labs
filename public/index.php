@@ -26,6 +26,14 @@ if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'HEAD'])) {
     echo document(['view' => 'error'], empty_message('Method not allowed.'));
     exit;
 }
+if (preg_match('~^/og(/|$)~', $path)) {
+    $card = card_image($db, $path, $now);
+    header('Content-Type: image/png');
+    // Chat apps cache unfurls anyway; this spares the server re-drawing a card on every crawler hit.
+    header('Cache-Control: public, max-age=3600');
+    imagepng($card, null, 9);
+    exit;
+}
 $s = page_state($_SERVER['REQUEST_URI'], $_GET, $now) + site_context($db);
 if (rawurldecode($path) !== $s['canonical']) {
     $query = http_build_query($_GET);
@@ -36,4 +44,4 @@ $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'
 if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
 $d = get_data($db, $query, $now);
 if ($d === null) http_response_code(404);
-echo document($s, page_body($s, $d));
+echo document($s + ['meta' => card_meta($s, $d)], page_body($s, $d));

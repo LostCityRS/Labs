@@ -40,7 +40,6 @@ function world_stats(PDO $db, int $now, string $weekday): array {
         'first' => $first,
         'today' => array_sum($live),
         'week' => array_sum($week),
-        'ever' => array_sum(array_column($days, 'value')) + array_sum($live),
         // The first day started mid-day, so it would read as a slump.
         'daily' => array_values(array_filter($days, fn($d) => $d['at'] > $first)),
         'skills' => $week,

@@ -281,22 +281,9 @@ function plot(array $points, string $name, float $xmax, array $xticks, callable 
     foreach ($xticks as $v => $label) $html .= '<text class="axis" x="' . $x($v) . '" y="215" text-anchor="middle">' . e($label) . '</text>';
     return $html . '</svg>';
 }
-// One bar per UTC day; today is still running, so it is drawn faded and labelled.
-function day_bars(array $days, float $today, int $now): string {
-    $bars = array_merge($days, [['at' => intdiv($now, DAY_MS) * DAY_MS, 'value' => $today, 'live' => true]]);
-    $max = max(array_column($bars, 'value')) ?: 1; $w = 650 / count($bars);
-    $html = '<svg class="chart" viewBox="0 0 770 226" role="img" aria-label="World XP gained per UTC day"><g class="grid">';
-    for ($i = 0; $i < 4; $i++) $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/><text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . fmt(($max - $i * $max / 3) / 1e6) . 'm</text>';
-    $html .= '</g>';
-    foreach ($bars as $i => $b) {
-        $h = $b['value'] / $max * 148; $x = 62 + $i * $w + $w * .15; $label = gmdate('j M', (int) ($b['at'] / 1000)) . (isset($b['live']) ? ' (so far)' : '');
-        $html .= '<g class="bar' . (isset($b['live']) ? ' live' : '') . '" tabindex="0"><rect x="' . $x . '" y="' . (185 - $h) . '" width="' . ($w * .7) . '" height="' . $h . '"><title>' . e($label . ' · ' . fmt($b['value']) . ' XP') . '</title></rect><text class="axis" x="' . ($x + $w * .35) . '" y="203" text-anchor="middle">' . e($label) . '</text></g>';
-    }
-    return $html . '</svg>';
-}
 function stats_view(array $s, array $d): string {
-    $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Since ' . gmdate('j M Y', (int) ($d['first'] / 1000)) . '</span><strong class="gain">+' . fmt($d['ever']) . '</strong></div></div>';
-    $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . day_bars($d['daily'], $d['today'], $s['now']) . '</section>';
+    $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals'])) . '</strong></div></div>';
+    $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . chart([['points' => $d['daily']]], 'World XP gained per UTC day', 'XP', $s, true) . '</section>';
     $total = array_sum($d['skills']); $skills = array_filter($d['skills'], fn($v) => $v > 0); arsort($skills); $slots = '';
     foreach ($skills as $type => $xp) $slots .= '<div class="ehp-slot" tabindex="0" role="img" aria-label="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP · ' . fmt($xp / $total * 100, 1) . '%') . '" title="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($xp / $total * 100, 1) . '%</b></div>';
     $cells = [];
@@ -306,12 +293,12 @@ function stats_view(array $s, array $d): string {
     }
     $html .= '<div class="stats-pair"><section class="panel"><h2>Popular skills</h2><p class="muted">Share of XP gained in the last 7 days.</p><div class="ehp-grid">' . $slots . '</div></section><section class="panel clan-levels"><h2>99s</h2><p class="muted">Tracked players with 99 in each skill.</p>' . skill_grid($cells) . '<p class="muted clan-total"><b>' . fmt(array_sum($d['nineties'])) . '</b> 99s · <b>' . fmt($d['new99s']) . '</b> new in 7 days · <b>' . fmt($d['maxed']) . '</b> maxed</p></section></div>';
     $n = count($d['totals']); $sum = array_sum($d['totals']); $share = function (float $top) use ($d, $n, $sum) {$k = max(1, (int) round($n * $top / 100)); return array_sum(array_slice($d['totals'], 0, $k)) / $sum * 100;};
-    $half = 0; for ($acc = 0; $acc < $sum / 2; $half++) $acc += $d['totals'][$half];
-    $curve = array_map(fn($p) => ['x' => $p, 'y' => $p ? $share($p) : 0, 'tip' => 'Top ' . $p . '% hold ' . fmt($p ? $share($p) : 0, 1) . '% of XP'], [0, 1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
-    $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2><p class="muted">The top 1% of ' . fmt($n) . ' tracked players hold <b class="gain">' . fmt($share(1), 1) . '%</b> of all XP and the top 10% hold <b class="gain">' . fmt($share(10), 1) . '%</b>. Half of it belongs to just ' . fmt($half) . ' players.</p>' . plot($curve, 'Share of XP held by the top players', 100, [0 => 'Top 0%', 25 => '25%', 50 => '50%', 75 => '75%', 100 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
+    // Log scale: the interesting part is the handful of players at the very top.
+    $curve = array_map(fn($p) => ['x' => log10($p) + 2, 'y' => $share($p), 'tip' => 'Top ' . $p . '% hold ' . fmt($share($p), 1) . '% of XP'], [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]);
+    $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2>' . plot($curve, 'Share of XP held by the top players', 4, [0 => 'Top 0.01%', 1 => 'Top 0.1%', 2 => 'Top 1%', 3 => 'Top 10%', 4 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
     $now = ($s['now'] % DAY_MS) / 3600000; $showNow = in_array($s['day'], ['all', weekday($s['now'])], true);
     $hours = array_map(fn($r) => ['x' => (int) $r['hour'], 'y' => (float) $r['value'], 'tip' => sprintf('%02d:00 UTC · %s online on average (%d days)', $r['hour'], fmt($r['value']), $r['days'])], $d['online']);
-    $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', WEEKDAYS, 'Day of week') . '</div><p class="muted">Average players online by hour (UTC), from ' . fmt(max(array_column($d['online'], 'days') ?: [0])) . ' days of five-minute samples.</p>' . ($hours ? plot($hours, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column($hours, 'y')), $showNow ? [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))] : null) : empty_message('No samples for this day yet.')) . '</section>';
+    $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', WEEKDAYS, 'Day of week') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($hours ? plot($hours, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column($hours, 'y')), $showNow ? [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))] : null) : empty_message('No samples for this day yet.')) . '</section>';
     return $html;
 }
 function clan_view(array $s, array $d): string {

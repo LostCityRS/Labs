@@ -148,8 +148,6 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .stats-pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .stats-pair>*{min-width:0}
 .stats-pair .muted{margin:6px 0 12px}
-.bar rect{fill:var(--chart)}
-.bar.live rect{opacity:.45}
 .graph-panel>.muted{margin-bottom:6px}
 @media(max-width:900px){.stats-pair{grid-template-columns:1fr}}
 @media(max-width:620px){.chart .axis,.marker text{font-size:24px}}

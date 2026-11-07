@@ -14,7 +14,9 @@ function player_name(string $name, array $clans): string {
 }
 function clan_icon(string $key): string {
     if (!isset(CLANS[$key])) throw new RuntimeException("Unknown clan $key");
-    return '<img class="clan-icon" src="' . e(CLANS[$key]['icon']) . '" alt="' . e(CLANS[$key]['name']) . '" title="' . e(CLANS[$key]['name']) . '">';}
+    // Assets are browser-cached for a week, so a redrawn icon needs a new URL.
+    $version = filemtime(__DIR__ . '/../public' . CLANS[$key]['icon']) ?: throw new RuntimeException("Missing icon for clan $key");
+    return '<img class="clan-icon" src="' . e(CLANS[$key]['icon']) . '?v=' . $version . '" alt="' . e(CLANS[$key]['name']) . '" title="' . e(CLANS[$key]['name']) . '">';}
 function clan_link(string $key): string {return '<a href="/clans/' . $key . '">' . e(CLANS[$key]['name']) . clan_icon($key) . '</a>';}
 function segments(array $s, string $key, array $options, string $label): string {
     $html = '<nav class="segments" aria-label="' . e($label) . '">';
@@ -198,11 +200,11 @@ function settings_view(array $s, array $profiles): string {
     $rows = [];
     foreach ($profiles as $p) {
         $roster = $p['roster'] === null ? [] : explode(',', $p['roster']);
-        // Leaving a rostered character on its roster entry keeps it in sync with the clan's list.
-        $options = $roster ? ['' => implode(' + ', array_map(fn($k) => CLANS[$k]['name'], $roster)) . ' (clan list)', 'none' => 'None'] : ['' => 'None'];
+        // Show what the character currently displays; only someone on two rosters needs a combined entry.
+        $current = $p['clan'] ?? (count($roster) === 1 ? $roster[0] : ($roster ? '' : 'none'));
+        $options = ($current === '' ? ['' => implode(' + ', array_map(fn($k) => CLANS[$k]['name'], $roster))] : []) + ['none' => 'None'] + array_map(fn($clan) => $clan['name'], CLANS);
         $select = '<select name="clans[' . e($p['name']) . ']" aria-label="Clan for ' . display_name($p['name']) . '">';
-        foreach ($options as $value => $label) $select .= '<option value="' . $value . '"' . (($p['clan'] ?? '') === $value || (!$roster && $p['clan'] === 'none' && $value === '') ? ' selected' : '') . '>' . e($label) . '</option>';
-        foreach (CLANS as $key => $clan) $select .= '<option value="' . $key . '"' . ($p['clan'] === $key ? ' selected' : '') . '>' . e($clan['name']) . '</option>';
+        foreach ($options as $value => $label) $select .= '<option value="' . $value . '"' . ($current === (string) $value ? ' selected' : '') . '>' . e($label) . '</option>';
         $rows[] = [player_link($p['name'], $s['clans']), $select . '</select>'];
     }
     return $body . '<form class="settings-form" action="/settings" method="post"><input type="hidden" name="csrf" value="' . e($s['csrf']) . '">' . table(['Player', 'Clan'], $rows, 'Your linked characters') . '<div class="settings-actions"><a href="/login">Refresh linked characters</a><button type="submit">Save settings</button></div></form></section>' . $logout;

@@ -1,9 +1,10 @@
 <?php
+// established/discord/topic are null when unknown; rosters and extra videos live in clan_roster and clan_videos.
 const CLANS = [
-    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'at Lost City launch', 'discord' => null, 'topic' => 13384, 'roster' => null],
-    'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285,
-        // Posted by the clan on Discord, Nov 2026; Crandor's list is read from its forum thread instead.
-        'roster' => ['paskahousu', 'mogn', 'chakrakilla', 'canada', 'mitchman468', 'vodkadrinker', 'mate', 'bopjick', 'timmay', '14k', 'tfefa', 'summerschill', 'proverbs_3_5', 'bitcoin_maxi', 'bjorn', 'billcosby', 'blazey', 'pikisensei', 'x7', '2650_rasmus', 'fors', 'slat', 'godric', 'z1skowski', 'diode', 'luke_duke220', 'blackout', 'pooch', 'dat_tree', 'clerk', 'timka', 'muay_thai', 'big_qanso', 'p_boi', 'canadian_eh', 'brwn', 'mystical', 'xgod_osirisx', 'flavor', 'ramse_bamse', 'repose', 'insanity', 'mud_muscle', 'red_bracket', 'zombie_musiq', 'red_bean']],
+    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'at Lost City launch', 'discord' => null, 'topic' => 13384],
+    'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285],
+    'lit' => ['name' => 'LiT', 'icon' => '/assets/clans/lit.png', 'color' => '#e0614a', 'established' => null, 'discord' => null, 'topic' => null],
+    'aggression' => ['name' => 'Aggression', 'icon' => '/assets/clans/aggression.png', 'color' => '#a98be0', 'established' => null, 'discord' => null, 'topic' => null],
 ];
 const CLAN_METRICS = ['ehp' => 'EHP', 'xp' => 'XP'];
 const CLAN_SCALES = ['average' => 'Average', 'total' => 'Total'];
@@ -76,26 +77,13 @@ function youtube_video(string $id): array {
     return ['title' => $video['title'] ?? throw new RuntimeException("YouTube oEmbed for $id has no title"), 'channel' => $video['author_name'] ?? null];
 }
 
-// Videos come from the clan owner's own posts in its forum thread, so replies cannot add videos to the clan page.
-function refresh_clans(PDO $db): void {
+// Adds videos from the clan owner's own posts in its forum thread, so replies cannot add videos to the clan page.
+function refresh_clan_videos(PDO $db): void {
     $errors = [];
-    foreach (CLANS as $key => $clan) {
+    foreach (array_filter(CLANS, fn($clan) => $clan['topic'] !== null) as $key => $clan) {
         try {
             $get = fn(string $path) => json_decode(file_get_contents("https://lostcity.rs$path", false, stream_context_create(['http' => ['timeout' => 15]])) ?: throw new RuntimeException("Fetching forum $path failed: " . ($http_response_header[0] ?? 'no response')), true, flags: JSON_THROW_ON_ERROR);
-            $topic = $get("/t/{$clan['topic']}.json");
-            $owner = $topic['details']['created_by']['username'] ?? throw new RuntimeException("Forum topic {$clan['topic']} has no author");
-            $roster = $clan['roster'];
-            if ($roster === null) {
-                $text = html_entity_decode(strip_tags($topic['post_stream']['posts'][0]['cooked']), ENT_QUOTES);
-                preg_match('/Current members:\s*([^\n]+)/', $text, $m) ?: throw new RuntimeException("No 'Current members:' list in forum topic {$clan['topic']}");
-                $roster = preg_split('/\s*,\s*/', trim($m[1]));
-            }
-            $roster = array_unique(array_map('safe_name', $roster));
-            transaction($db, "saving $key roster", function () use ($db, $key, $roster) {
-                $db->prepare('DELETE FROM clan_roster WHERE clan = ?')->execute([$key]);
-                $insert = $db->prepare('INSERT INTO clan_roster (clan, name) VALUES (?, ?)');
-                foreach ($roster as $name) $insert->execute([$key, $name]);
-            });
+            $owner = $get("/t/{$clan['topic']}.json")['details']['created_by']['username'] ?? throw new RuntimeException("Forum topic {$clan['topic']} has no author");
             $thread = $get("/t/{$clan['topic']}.json?username_filters=" . rawurlencode($owner))['post_stream'];
             $posts = $thread['posts'];
             foreach (array_chunk(array_diff($thread['stream'], array_column($posts, 'id')), 20) as $chunk) array_push($posts, ...$get("/t/{$clan['topic']}/posts.json?" . http_build_query(['post_ids' => $chunk]))['post_stream']['posts']);
@@ -111,10 +99,9 @@ function refresh_clans(PDO $db): void {
                 $db->prepare('INSERT INTO clan_videos (clan, video_id, title, channel, shared_at) VALUES (?, ?, ?, ?, ?)')->execute([$key, $id, $video['title'], $video['channel'], $at]);
                 error_log("Labs: clan $key video $id " . ($video['title'] === null ? 'unavailable' : 'added'));
             }
-            foreach (array_diff_key($known, $shared) as $id => $unused) $db->prepare('DELETE FROM clan_videos WHERE clan = ? AND video_id = ?')->execute([$key, $id]);
         } catch (Throwable $e) {
             $errors[] = "$key: " . $e->getMessage();
         }
     }
-    if ($errors) throw new RuntimeException('Clan refresh failed: ' . implode('; ', $errors));
+    if ($errors) throw new RuntimeException('Clan video refresh failed: ' . implode('; ', $errors));
 }

@@ -1,8 +1,33 @@
 <?php
-const WEEKDAYS = ['all' => 'All days', 'mon' => 'Mon', 'tue' => 'Tue', 'wed' => 'Wed', 'thu' => 'Thu', 'fri' => 'Fri', 'sat' => 'Sat', 'sun' => 'Sun'];
+const ONLINE_VIEWS = ['all' => 'Average', 'split' => 'By day type'];
+const DAY_TYPES = ['weekday' => 'Weekday', 'saturday' => 'Saturday', 'sunday' => 'Sunday', 'holiday' => 'Holiday'];
 const DAY_MS = 86400000;
 
-function weekday(int $at): string {return array_keys(WEEKDAYS)[1 + (intdiv($at, DAY_MS) + 3) % 7];} // 1 Jan 1970 was a Thursday
+// Major US and European public holidays as 'm-d' => name.
+function holidays(int $year): array {
+    // Anonymous Gregorian algorithm for Easter Sunday.
+    $a = $year % 19; $b = intdiv($year, 100); $c = $year % 100; $f = intdiv($b + 8, 25); $g = intdiv($b - $f + 1, 3);
+    $h = (19 * $a + $b - intdiv($b, 4) - $g + 15) % 30; $l = (32 + 2 * ($b % 4) + 2 * intdiv($c, 4) - $h - $c % 4) % 7; $m = intdiv($a + 11 * $h + 22 * $l, 451);
+    $easter = gmmktime(0, 0, 0, intdiv($h + $l - 7 * $m + 114, 31), ($h + $l - 7 * $m + 114) % 31 + 1, $year);
+    $on = fn(string $rule) => gmdate('m-d', strtotime("$rule $year 00:00 UTC"));
+    return ['01-01' => "New Year's Day", gmdate('m-d', $easter - 2 * 86400) => 'Good Friday', gmdate('m-d', $easter + 86400) => 'Easter Monday', '05-01' => 'May Day', $on('last monday of may') => 'Memorial Day (US)', '07-04' => 'Independence Day (US)', $on('first monday of september') => 'Labor Day (US)', $on('fourth thursday of november') => 'Thanksgiving (US)', '12-24' => 'Christmas Eve', '12-25' => 'Christmas Day', '12-26' => 'Boxing Day', '12-31' => "New Year's Eve"];
+}
+function day_type(int $day): string {
+    if (isset(holidays((int) gmdate('Y', intdiv($day, 1000)))[gmdate('m-d', intdiv($day, 1000))])) return 'holiday';
+    return ['6' => 'saturday', '0' => 'sunday'][gmdate('w', intdiv($day, 1000))] ?? 'weekday';
+}
+// Average players online per UTC hour, overall and per day type; 'days' counts the distinct days behind each hour.
+function online_by_hour(PDO $db): array {
+    $hours = [];
+    foreach (fetch_rows($db, 'SELECT FLOOR(at / 86400000) * 86400000 AS day, FLOOR(MOD(at, 86400000) / 3600000) AS hour, SUM(players) AS players, COUNT(*) AS samples FROM online GROUP BY day, hour') as $r) {
+        foreach (['all', day_type((int) $r['day'])] as $type) {
+            $h = &$hours[$type][(int) $r['hour']];
+            $h['players'] = ($h['players'] ?? 0) + $r['players']; $h['samples'] = ($h['samples'] ?? 0) + $r['samples']; $h['days'] = ($h['days'] ?? 0) + 1;
+            unset($h);
+        }
+    }
+    return array_map(function ($byHour) {ksort($byHour); return array_map(fn($h) => ['value' => $h['players'] / $h['samples'], 'days' => $h['days']], $byHour);}, $hours);
+}
 
 // XP gained per skill for xp rows in [$from, $to); a skill's first observation has no previous value and adds nothing.
 function xp_gained(PDO $db, int $from, int $to): array {
@@ -32,7 +57,7 @@ function previous_week(PDO $db, int $today): ?array {
     return array_map('floatval', array_column(fetch_rows($db, 'SELECT type, SUM(gain) AS gain FROM world_xp WHERE type > 0 AND day >= ? AND day < ? GROUP BY type', [$from, $to]), 'gain', 'type'));
 }
 
-function world_stats(PDO $db, int $now, string $weekday): array {
+function world_stats(PDO $db, int $now): array {
     $today = intdiv($now, DAY_MS) * DAY_MS;
     $first = (int) ($db->query('SELECT MIN(at) FROM xp')->fetchColumn() ?: throw new RuntimeException('No XP history yet'));
     $live = xp_gained($db, $today, $now + 1);
@@ -42,7 +67,6 @@ function world_stats(PDO $db, int $now, string $weekday): array {
     $week = $live;
     foreach (fetch_rows($db, 'SELECT type, SUM(gain) AS gain FROM world_xp WHERE type > 0 AND day >= ? GROUP BY type', [$today - 6 * DAY_MS]) as $r) $week[$r['type']] = ($week[$r['type']] ?? 0) + $r['gain'];
     $totals = array_map('floatval', array_column(fetch_rows($db, 'SELECT SUM(value) / 10 AS xp FROM current WHERE type > 0 GROUP BY player_id ORDER BY xp DESC'), 'xp'));
-    $online = fetch_rows($db, 'SELECT FLOOR(MOD(at, 86400000) / 3600000) AS hour, AVG(players) AS value, COUNT(DISTINCT FLOOR(at / 86400000)) AS days FROM online' . ($weekday === 'all' ? '' : ' WHERE MOD(FLOOR(at / 86400000) + 3, 7) = ?') . ' GROUP BY hour ORDER BY hour', $weekday === 'all' ? [] : [array_search($weekday, array_keys(WEEKDAYS)) - 1]);
     return [
         'first' => $first,
         'today' => array_sum($live),
@@ -56,6 +80,6 @@ function world_stats(PDO $db, int $now, string $weekday): array {
         'new99s' => array_map(fn($days) => array_map('intval', array_column(fetch_rows($db, 'SELECT type, COUNT(*) AS n FROM levels WHERE level = 99 AND at >= ? GROUP BY type', [$now - $days * DAY_MS]), 'n', 'type')), [7 => 7, 30 => 30]),
         'previous' => previous_week($db, $today),
         'maxed' => (int) $db->query('SELECT COUNT(*) FROM current WHERE type = 0 AND level >= ' . ((count(SKILLS) - 1) * 99))->fetchColumn(),
-        'online' => $online,
+        'online' => online_by_hour($db),
     ];
 }

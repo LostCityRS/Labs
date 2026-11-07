@@ -35,7 +35,7 @@ function page_state(string $uri, array $params, int $now): array {
     if ($view === 'hiscores' && $type !== 0) throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $name = $view === 'player' ? safe_name($parts[1]) : '';
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => '/records/' . $skill, 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? ['day' => isset(WEEKDAYS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown day: $day")] : []);
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? ['day' => isset(ONLINE_VIEWS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown view: $day")] : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {
@@ -91,7 +91,7 @@ function get_data(PDO $db, array $params, int $now) {
         'hiscores' => hiscores_rows($db, $params, $now),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'clans' => clan_map($db),
-        'stats' => world_stats($db, $now, isset(WEEKDAYS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown day: $day")),
+        'stats' => world_stats($db, $now),
         'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => $members = clan_members($db, $clan, $period, $now), 'levels' => clan_skill_xp($db, $members), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
         'clan-hiscores' => array_map(fn($key) => ['members' => $members = clan_members($db, $key, $period, $now), 'levels' => clan_skill_xp($db, $members)], array_combine(array_keys(CLANS), array_keys(CLANS))),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],

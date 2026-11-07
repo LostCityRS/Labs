@@ -284,20 +284,25 @@ function clan_levels(array $s, array $skills, array $ehp): string {
     return '<section class="panel clan-levels"><div class="panel-heading"><h2>Clan levels</h2>' . segments($s, 'scale', CLAN_SCALES, 'Total or average') . '</div>' . skill_grid($cells) . '<p class="muted clan-total">Total level <b>' . fmt($sum) . '</b> · ' . CLAN_SCALES[$s['scale']] . ' EHP <b>' . ehp($points) . '</b></p></section>';
 }
 // A chart with numeric x (hours, percentiles) rather than time; $marker draws a labelled vertical line.
-function plot(array $points, string $name, float $xmax, array $xticks, callable $ylabel, float $ymin, ?array $marker = null): string {
-    $ys = array_column($points, 'y'); $ymax = max($ys); if ($ymax == $ymin) $ymax++;
+// $lines: [['points' => [['x', 'y', 'tip'], ...], 'key' => ?string, 'color' => ?string], ...].
+function plot(array $lines, string $name, float $xmax, array $xticks, callable $ylabel, float $ymin, ?array $marker = null): string {
+    $ys = array_column(array_merge(...array_column($lines, 'points')), 'y'); $ymax = max($ys); if ($ymax == $ymin) $ymax++;
     $x = fn($v) => 62 + $v / $xmax * 650; $y = fn($v) => 185 - ($v - $ymin) * 148 / ($ymax - $ymin);
     $html = '<svg class="chart" viewBox="0 0 770 226" role="img" aria-label="' . e($name) . '"><g class="grid">';
     for ($i = 0; $i < 4; $i++) $html .= '<line x1="62" x2="730" y1="' . (37 + $i * 148 / 3) . '" y2="' . (37 + $i * 148 / 3) . '"/><text x="50" y="' . (41 + $i * 148 / 3) . '" text-anchor="end">' . e($ylabel($ymax - $i * ($ymax - $ymin) / 3)) . '</text>';
     $html .= '</g>' . ($marker ? '<g class="marker"><line x1="' . $x($marker[0]) . '" x2="' . $x($marker[0]) . '" y1="28" y2="190"/><text x="' . $x($marker[0]) . '" y="22" text-anchor="middle">' . e($marker[1]) . '</text></g>' : '');
-    $html .= '<polyline class="xp-line" points="' . implode(' ', array_map(fn($p) => $x($p['x']) . ',' . $y($p['y']), $points)) . '"/>';
-    foreach ($points as $p) {
-        $px = $x($p['x']); $py = $y($p['y']); $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
-        $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($p['tip']) . '</text></g>';
+    foreach ($lines as $l) {
+        $html .= '<g' . (isset($l['key']) ? ' class="line-' . $l['key'] . '"' : '') . (isset($l['color']) ? ' style="--chart:' . e($l['color']) . '"' : '') . '><polyline class="xp-line" points="' . implode(' ', array_map(fn($p) => $x($p['x']) . ',' . $y($p['y']), $l['points'])) . '"/>';
+        foreach ($l['points'] as $p) {
+            $px = $x($p['x']); $py = $y($p['y']); $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
+            $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($p['tip']) . '</text></g>';
+        }
+        $html .= '</g>';
     }
     foreach ($xticks as $v => $label) $html .= '<text class="axis" x="' . $x($v) . '" y="215" text-anchor="middle">' . e($label) . '</text>';
     return $html . '</svg>';
 }
+const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];
 function stats_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals'])) . '</strong></div></div>';
     $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . chart([['points' => $d['daily']]], 'World XP gained per UTC day', 'XP', $s, true) . '</section>';
@@ -320,10 +325,18 @@ function stats_view(array $s, array $d): string {
     $n = count($d['totals']); $sum = array_sum($d['totals']); $share = function (float $top) use ($d, $n, $sum) {$k = max(1, (int) round($n * $top / 100)); return array_sum(array_slice($d['totals'], 0, $k)) / $sum * 100;};
     // Log scale: the interesting part is the handful of players at the very top.
     $curve = array_map(fn($p) => ['x' => log10($p) + 2, 'y' => $share($p), 'tip' => 'Top ' . $p . '% hold ' . fmt($share($p), 1) . '% of XP'], [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]);
-    $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2>' . plot($curve, 'Share of XP held by the top players', 4, [0 => 'Top 0.01%', 1 => 'Top 0.1%', 2 => 'Top 1%', 3 => 'Top 10%', 4 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
-    $now = ($s['now'] % DAY_MS) / 3600000; $showNow = in_array($s['day'], ['all', weekday($s['now'])], true);
-    $hours = array_map(fn($r) => ['x' => (int) $r['hour'], 'y' => (float) $r['value'], 'tip' => sprintf('%02d:00 UTC · %s online on average (%d days)', $r['hour'], fmt($r['value']), $r['days'])], $d['online']);
-    $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', WEEKDAYS, 'Day of week') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($hours ? plot($hours, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column($hours, 'y')), $showNow ? [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))] : null) : empty_message('No samples for this day yet.')) . '</section>';
+    $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2>' . plot([['points' => $curve]], 'Share of XP held by the top players', 4, [0 => 'Top 0.01%', 1 => 'Top 0.1%', 2 => 'Top 1%', 3 => 'Top 10%', 4 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
+    $types = $s['day'] === 'all' ? ['all' => 'Average'] : DAY_TYPES; $lines = []; $legend = '';
+    $holidays = 'Major US and European holidays: ' . implode(', ', holidays((int) gmdate('Y', (int) ($s['now'] / 1000))));
+    foreach ($types as $key => $label) {
+        $points = [];
+        foreach ($d['online'][$key] ?? [] as $hour => $h) $points[] = ['x' => $hour, 'y' => $h['value'], 'tip' => sprintf('%s %02d:00 UTC · %s online (%d %s)', $label, $hour, fmt($h['value']), $h['days'], $h['days'] === 1 ? 'day' : 'days')];
+        if ($points) $lines[] = ['points' => $points, 'key' => $key, 'color' => DAY_COLORS[$key] ?? null];
+        // Checkboxes hide lines through CSS alone, so the page still needs no script.
+        if ($key !== 'all') $legend .= '<label style="--chart:' . DAY_COLORS[$key] . '"' . ($key === 'holiday' ? ' title="' . e($holidays) . '"' : '') . '><input class="sr-only" type="checkbox" value="' . $key . '" checked' . ($points ? '' : ' disabled') . '><span>' . $label . ($points ? '' : ' (no days yet)') . '</span></label>';
+    }
+    $now = ($s['now'] % DAY_MS) / 3600000;
+    $html .= '<section class="panel graph-panel day-lines"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', ONLINE_VIEWS, 'Online view') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($legend ? '<div class="legend">' . $legend . '</div>' : '') . ($lines ? plot($lines, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column(array_merge(...array_column($lines, 'points')), 'y')), [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))]) : empty_message('No samples yet.')) . '</section>';
     return $html;
 }
 function clan_view(array $s, array $d): string {
@@ -354,7 +367,7 @@ function page_body(array $s, $d): string {
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=25"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=26"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

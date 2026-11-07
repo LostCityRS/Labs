@@ -175,7 +175,7 @@ function main_skill(?array $ehp): string {
     $skills = array_diff_key($ehp ?? [], [0 => true]);
     if (!$skills || max($skills) <= 0) return '';
     $type = array_search(max($skills), $skills, true);
-    return '<span class="main-skill" title="' . e('Most EHP: ' . SKILLS[$type] . ' · ' . ehp($skills[$type])) . '">' . icon(SKILLS[$type]) . '</span>';
+    return '<span class="main-skill">' . icon(SKILLS[$type]) . '</span>';
 }
 function held_records(array $rows): string {
     if (!$rows) return '';

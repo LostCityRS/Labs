@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/data.php';
 const PERIOD_LABELS = ['24h' => 'Last 24 hours', '7d' => '7 days ago', '30d' => '30 days ago'];
-const NAV = ['home' => 'Home', 'hiscores' => 'Hiscores', 'records' => 'Records', 'players' => 'Players', 'clans' => 'Clans', 'stats' => 'Stats'];
+const NAV = ['Rankings' => ['hiscores' => 'Hiscores', 'records' => 'XP records', 'clans' => 'Clans'], 'World' => ['home' => 'Recent activity', 'stats' => 'World stats', 'players' => 'Players online'], 'Guides' => ['guides' => 'EHP rates']];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -73,6 +73,12 @@ function table(array $headers, array $rows, string $caption, ?string $sorted = n
     }
     return $html . '</tbody></table></div>';
 }
+function recent_99s(array $rows, int $now, array $clans): string {
+    if (!$rows) return empty_message('None yet.');
+    $html = '<div class="recent-99s">';
+    foreach ($rows as $r) $html .= '<div title="' . e(SKILLS[$r['type']] . ' 99 · ' . gmdate('j M Y H:i', (int) ($r['at'] / 1000)) . ' UTC') . '">' . icon(SKILLS[$r['type']]) . player_link($r['name'], $clans) . '<small>' . ago($r['at'], $now) . '</small></div>';
+    return $html . '</div>';
+}
 function achievements(array $rows, int $now, array $clans): string {
     if (!$rows) return empty_message('None yet.');
     $html = '';
@@ -130,7 +136,7 @@ function ehp_inventory(array $ehp, string $name): string {
     return $html . '</div><div class="ehp-tooltip" role="tooltip" hidden></div></div></section>';
 }
 function home_view(array $s, array $d): string {
-    $html = '<h1 class="sr-only">Lost City Labs</h1>' . search_form() . '<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . table(['Rank', 'Player', 'XP'], array_map(fn($g, $i) => [$i + 1, player_link($g['name'], $s['clans']), '<span class="gain">+' . xp($g['gain']) . '</span>'], $d['gainers'], array_keys($d['gainers'])), 'Most XP gained') . '</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>' . table(['Player', 'Total level', 'First tracked'], array_map(fn($p) => [player_link($p['name'], $s['clans']), fmt($p['level']), ago($p['first_seen'], $s['now'])], $d['newest']), 'Newly tracked players') . '</section></div><aside><section class="panel"><h2>Recent 99s</h2>' . achievements($d['nineties'], $s['now'], $s['clans']) . '</section>';
+    $html = '<h1 class="sr-only">Lost City Labs</h1>' . search_form() . '<div class="home-grid"><div><section class="panel"><div class="panel-heading"><h2>Most XP gained</h2>' . period_control($s) . '</div><div class="toolbar">' . skill_select($s) . '</div>' . table(['Rank', 'Player', 'XP'], array_map(fn($g, $i) => [$i + 1, player_link($g['name'], $s['clans']), '<span class="gain">+' . xp($g['gain']) . '</span>'], $d['gainers'], array_keys($d['gainers'])), 'Most XP gained') . '</section><section class="panel"><div class="panel-heading"><h2>Newly tracked players</h2></div>' . table(['Player', 'Total level', 'First tracked'], array_map(fn($p) => [player_link($p['name'], $s['clans']), fmt($p['level']), ago($p['first_seen'], $s['now'])], $d['newest']), 'Newly tracked players') . '</section></div><aside><section class="panel"><h2>Recent 99s</h2>' . recent_99s($d['nineties'], $s['now'], $s['clans']) . '</section>';
     if (isset($d['weekly'])) {
         $html .= '<section class="panel weekly"><h2>Top EHP</h2>' . (!$d['weekly'] ? empty_message('No weekly winners yet.') : '');
         foreach ($d['weekly'] as $r) $html .= '<div class="winner"><small>' . e($r['week']) . '</small>' . player_link($r['name'], $s['clans']) . '<b>' . ehp($r['ehp']) . ' <span>EHP</span></b></div>';
@@ -285,13 +291,22 @@ function stats_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals'])) . '</strong></div></div>';
     $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . chart([['points' => $d['daily']]], 'World XP gained per UTC day', 'XP', $s, true) . '</section>';
     $total = array_sum($d['skills']); $skills = array_filter($d['skills'], fn($v) => $v > 0); arsort($skills); $slots = '';
-    foreach ($skills as $type => $xp) $slots .= '<div class="ehp-slot" tabindex="0" role="img" aria-label="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP · ' . fmt($xp / $total * 100, 1) . '%') . '" title="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($xp / $total * 100, 1) . '%</b></div>';
+    // Rank movement against the previous 7 days, once a full previous week exists.
+    $before = null;
+    if ($d['previous'] !== null) {$previous = $d['previous']; arsort($previous); $before = array_flip(array_keys($previous));}
+    $rank = 0;
+    foreach ($skills as $type => $xp) {
+        $move = $before === null || !isset($before[$type]) ? 0 : $before[$type] - $rank++;
+        $arrow = $move > 0 ? '<i class="up" title="Up ' . $move . ' since last week">▲' . $move . '</i>' : ($move < 0 ? '<i class="down" title="Down ' . -$move . ' since last week">▼' . -$move . '</i>' : '');
+        $slots .= '<div class="ehp-slot" tabindex="0" role="img" aria-label="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP · ' . fmt($xp / $total * 100, 1) . '%' . ($move ? ' · ' . ($move > 0 ? 'up ' : 'down ') . abs($move) : '')) . '" title="' . e(SKILLS[$type] . ' · ' . fmt($xp) . ' XP') . '">' . icon(SKILLS[$type]) . '<b>' . fmt($xp / $total * 100, 1) . '%' . $arrow . '</b></div>';
+    }
     $cells = [];
     foreach (STATS_TAB as $type) {
         $first = $d['first99'][$type] ?? null;
-        $cells[$type] = [fmt($d['nineties'][$type] ?? 0), SKILLS[$type] . ' · ' . fmt($d['nineties'][$type] ?? 0) . ' players with 99' . ($first ? ' · first seen reaching it: ' . ucwords(str_replace('_', ' ', $first['name'])) . ', ' . gmdate('j M Y', (int) ($first['at'] / 1000)) : '')];
+        $week = $d['new99s'][7][$type] ?? 0; $month = $d['new99s'][30][$type] ?? 0;
+        $cells[$type] = ['<span class="pair">' . fmt($d['nineties'][$type] ?? 0) . ($week ? '<small class="gain">+' . fmt($week) . '</small>' : '') . '</span>', SKILLS[$type] . ' · ' . fmt($d['nineties'][$type] ?? 0) . ' players with 99 · +' . fmt($week) . ' this week · +' . fmt($month) . ' this month' . ($first ? ' · first seen reaching it: ' . ucwords(str_replace('_', ' ', $first['name'])) . ', ' . gmdate('j M Y', (int) ($first['at'] / 1000)) : '')];
     }
-    $html .= '<div class="stats-pair"><section class="panel"><h2>Popular skills</h2><p class="muted">Share of XP gained in the last 7 days.</p><div class="ehp-grid">' . $slots . '</div></section><section class="panel clan-levels"><h2>99s</h2><p class="muted">Tracked players with 99 in each skill.</p>' . skill_grid($cells) . '<p class="muted clan-total"><b>' . fmt(array_sum($d['nineties'])) . '</b> 99s · <b>' . fmt($d['new99s']) . '</b> new in 7 days · <b>' . fmt($d['maxed']) . '</b> maxed</p></section></div>';
+    $html .= '<div class="stats-pair"><section class="panel"><h2>Popular skills</h2><p class="muted">Share of XP gained in the last 7 days.</p><div class="ehp-grid">' . $slots . '</div></section><section class="panel clan-levels"><h2>99s</h2><p class="muted">Tracked players with 99 in each skill.</p>' . skill_grid($cells) . '<p class="muted clan-total"><b>' . fmt(array_sum($d['nineties'])) . '</b> 99s · <b class="gain">+' . fmt(array_sum($d['new99s'][7])) . '</b> this week · <b>' . fmt($d['maxed']) . '</b> maxed</p></section></div>';
     $n = count($d['totals']); $sum = array_sum($d['totals']); $share = function (float $top) use ($d, $n, $sum) {$k = max(1, (int) round($n * $top / 100)); return array_sum(array_slice($d['totals'], 0, $k)) / $sum * 100;};
     // Log scale: the interesting part is the handful of players at the very top.
     $curve = array_map(fn($p) => ['x' => log10($p) + 2, 'y' => $share($p), 'tip' => 'Top ' . $p . '% hold ' . fmt($share($p), 1) . '% of XP'], [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]);
@@ -328,8 +343,12 @@ function page_body(array $s, $d): string {
     return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d)};
 }
 function document(array $s, string $body, string $notice = ''): string {
-    $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['guides' => 'EHP', 'settings' => 'Settings', 'error' => 'Error'] + NAV)[$s['view']]);
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=23"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar"><div class="sidebar-heading">Tracking</div><nav aria-label="Main">';
-    foreach (NAV as $view => $label) $html .= '<a href="' . ($view === 'home' ? '/' : ($view === 'records' ? '/records/Overall' : '/' . $view)) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
-    return $html . '</nav><div class="guide-menu"><div class="sidebar-heading">Guides</div><nav aria-label="Guides"><a href="/guides/ehp"' . ($s['view'] === 'guides' ? ' aria-current="page"' : '') . '>EHP</a></nav></div><a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span><a class="footer-discord" href="https://discord.gg/yk4eC8jB8s">Discord</a></footer></div></body></html>';
+    $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title><link rel="icon" href="/assets/stats.png"><link rel="stylesheet" href="/style.css?v=24"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    foreach (NAV as $group => $links) {
+        $html .= '<div class="sidebar-heading">' . $group . '</div><nav aria-label="' . $group . '">';
+        foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';
+        $html .= '</nav>';
+    }
+    return $html . '<a class="external" href="https://2004.lostcity.rs/title" target="_blank" rel="noopener">Lost City ↗</a></aside><main>' . $body . '</main></div><footer><span><a href="https://github.com/LostCityRS/Labs">Source code</a> · Inspired by anders\' original Lost City Labs ❤️</span><a class="footer-discord" href="https://discord.gg/yk4eC8jB8s">Discord</a></footer></div></body></html>';
 }

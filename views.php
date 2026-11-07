@@ -10,11 +10,11 @@ function display_name(string $name): string {return e(ucwords(str_replace('_', '
 function url(string $path, array $params = []): string {return e($path . ($params ? '?' . http_build_query($params) : ''));}
 function player_name(string $name, array $clans): string {
     $label = display_name($name); $key = safe_name($name);
-    if (!isset($clans[$key])) return $label;
-    $clan = CLANS[$clans[$key]] ?? throw new RuntimeException('Unknown player clan');
-    return $label . clan_icon($clans[$key]);
+    return $label . implode('', array_map('clan_icon', $clans[$key] ?? []));
 }
-function clan_icon(string $key): string {return '<img class="clan-icon" src="' . e(CLANS[$key]['icon']) . '" alt="' . e(CLANS[$key]['name']) . '" title="' . e(CLANS[$key]['name']) . '">';}
+function clan_icon(string $key): string {
+    if (!isset(CLANS[$key])) throw new RuntimeException("Unknown clan $key");
+    return '<img class="clan-icon" src="' . e(CLANS[$key]['icon']) . '" alt="' . e(CLANS[$key]['name']) . '" title="' . e(CLANS[$key]['name']) . '">';}
 function clan_link(string $key): string {return '<a href="/clans/' . $key . '">' . e(CLANS[$key]['name']) . clan_icon($key) . '</a>';}
 function segments(array $s, string $key, array $options, string $label): string {
     $html = '<nav class="segments" aria-label="' . e($label) . '">';
@@ -197,7 +197,11 @@ function settings_view(array $s, array $profiles): string {
     if (!$profiles) return $body . empty_message('No linked characters. Link your characters to Discord in Lost City, then refresh them here.') . '<a href="/login">Refresh linked characters</a></section>' . $logout;
     $rows = [];
     foreach ($profiles as $p) {
-        $select = '<select name="clans[' . e($p['name']) . ']" aria-label="Clan for ' . display_name($p['name']) . '"><option value=""' . ($p['clan'] === null ? ' selected' : '') . '>None</option>';
+        $roster = $p['roster'] === null ? [] : explode(',', $p['roster']);
+        // Leaving a rostered character on its roster entry keeps it in sync with the clan's list.
+        $options = $roster ? ['' => implode(' + ', array_map(fn($k) => CLANS[$k]['name'], $roster)) . ' (clan list)', 'none' => 'None'] : ['' => 'None'];
+        $select = '<select name="clans[' . e($p['name']) . ']" aria-label="Clan for ' . display_name($p['name']) . '">';
+        foreach ($options as $value => $label) $select .= '<option value="' . $value . '"' . (($p['clan'] ?? '') === $value || (!$roster && $p['clan'] === 'none' && $value === '') ? ' selected' : '') . '>' . e($label) . '</option>';
         foreach (CLANS as $key => $clan) $select .= '<option value="' . $key . '"' . ($p['clan'] === $key ? ' selected' : '') . '>' . e($clan['name']) . '</option>';
         $rows[] = [player_link($p['name'], $s['clans']), $select . '</select>'];
     }

@@ -61,14 +61,6 @@ function csrf_token(): string {
 function require_csrf(array $post): void {
     if (!hash_equals(csrf_token(), parameter($post, 'csrf'))) throw new AuthorizationException('The form expired. Reload this page and try again.');
 }
-function clan_map(PDO $db): array {
-    $clans = [];
-    foreach (fetch_rows($db, 'SELECT name, clan FROM character_clans WHERE clan IS NOT NULL') as $row) {
-        if (!isset(CLANS[$row['clan']])) throw new RuntimeException('Unknown stored clan');
-        $clans[$row['name']] = $row['clan'];
-    }
-    return $clans;
-}
 function site_context(PDO $db): array {
     $user = auth_user();
     return ['user' => $user, 'csrf' => $user ? csrf_token() : null, 'clans' => clan_map($db)];
@@ -95,7 +87,7 @@ function save_clans(PDO $db, string $discord, array $input): void {
         $owned = array_column(fetch_rows($db, 'SELECT name FROM character_clans WHERE discord_id = ? ORDER BY name FOR UPDATE', [$discord]), 'name');
         $names = array_map('strval', array_keys($input)); sort($names, SORT_STRING); sort($owned, SORT_STRING);
         if ($names !== $owned) throw new AuthorizationException('You can only change your linked characters.');
-        foreach ($input as $clan) if (!is_string($clan) || ($clan !== '' && !isset(CLANS[$clan]))) throw new InvalidArgumentException('Unknown clan');
+        foreach ($input as $clan) if (!is_string($clan) || ($clan !== '' && $clan !== 'none' && !isset(CLANS[$clan]))) throw new InvalidArgumentException('Unknown clan');
         $save = $db->prepare('UPDATE character_clans SET clan = ? WHERE name = ? AND discord_id = ?');
         foreach ($input as $name => $clan) $save->execute([$clan === '' ? null : $clan, $name, $discord]);
     });
@@ -147,6 +139,6 @@ function auth_routes(PDO $db, string $path): bool {
         header('Location: /settings?saved=1', true, 303); return true;
     }
     $s = page_state('/settings', $_GET, (int) (microtime(true) * 1000)) + site_context($db) + ['saved' => parameter($_GET, 'saved') === '1'];
-    $profiles = fetch_rows($db, 'SELECT cc.name, cc.clan, (SELECT MAX(x.at) FROM players p JOIN xp x ON x.player_id = p.id WHERE p.name = cc.name) AS updated_at FROM character_clans cc WHERE cc.discord_id = ? ORDER BY updated_at IS NULL, updated_at DESC, cc.name', [$user['id']]);
+    $profiles = fetch_rows($db, 'SELECT cc.name, cc.clan, (SELECT GROUP_CONCAT(r.clan ORDER BY r.clan) FROM clan_roster r WHERE r.name = cc.name) AS roster, (SELECT MAX(x.at) FROM players p JOIN xp x ON x.player_id = p.id WHERE p.name = cc.name) AS updated_at FROM character_clans cc WHERE cc.discord_id = ? ORDER BY updated_at IS NULL, updated_at DESC, cc.name', [$user['id']]);
     echo document($s, settings_view($s, $profiles)); return true;
 }

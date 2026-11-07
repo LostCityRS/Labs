@@ -15,5 +15,5 @@ try {
     transaction($db, 'refreshing gains', fn() => refresh_gains($db, $now));
     refresh_ehp_weeks($db, $now);
     // Hourly is plenty for forum-posted videos and keeps us polite to the forum and YouTube.
-    if (intdiv($now, 300000) % 12 === 0) refresh_clan_videos($db);
+    if (intdiv($now, 300000) % 12 === 0) refresh_clans($db);
 }

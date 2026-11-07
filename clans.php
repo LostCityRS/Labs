@@ -1,7 +1,9 @@
 <?php
 const CLANS = [
-    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'at Lost City launch', 'discord' => null, 'topic' => 13384],
-    'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285],
+    'crandor' => ['name' => 'Crandor', 'icon' => '/assets/clans/crandor.png', 'color' => '#d7b84a', 'established' => 'at Lost City launch', 'discord' => null, 'topic' => 13384, 'roster' => null],
+    'soul' => ['name' => 'Soul', 'icon' => '/assets/clans/soul.png', 'color' => '#00c2ee', 'established' => 'January 2025', 'discord' => 'https://discord.gg/eD5n4NZTue', 'topic' => 8285,
+        // Posted by the clan on Discord, Nov 2026; Crandor's list is read from its forum thread instead.
+        'roster' => ['paskahousu', 'mogn', 'chakrakilla', 'canada', 'mitchman468', 'vodkadrinker', 'mate', 'bopjick', 'timmay', '14k', 'tfefa', 'summerschill', 'proverbs_3_5', 'bitcoin_maxi', 'bjorn', 'billcosby', 'blazey', 'pikisensei', 'x7', '2650_rasmus', 'fors', 'slat', 'godric', 'z1skowski', 'diode', 'luke_duke220', 'blackout', 'pooch', 'dat_tree', 'clerk', 'timka', 'muay_thai', 'big_qanso', 'p_boi', 'canadian_eh', 'brwn', 'mystical', 'xgod_osirisx', 'flavor', 'ramse_bamse', 'repose', 'insanity', 'mud_muscle', 'red_bracket', 'zombie_musiq', 'red_bean']],
 ];
 const CLAN_METRICS = ['ehp' => 'EHP', 'xp' => 'XP'];
 const CLAN_SCALES = ['average' => 'Average', 'total' => 'Total'];
@@ -15,9 +17,22 @@ function clan_options(array $params, bool $hiscores): array {
     return compact('metric', 'scale');
 }
 
+// Known clan rosters tag characters until their owner picks a clan (or None) in Settings.
+function clan_map(PDO $db): array {
+    $clans = [];
+    foreach (fetch_rows($db, 'SELECT name, clan FROM clan_roster ORDER BY clan') as $row) $clans[$row['name']][] = $row['clan'];
+    foreach (fetch_rows($db, 'SELECT name, clan FROM character_clans WHERE clan IS NOT NULL') as $row) {
+        if ($row['clan'] !== 'none' && !isset(CLANS[$row['clan']])) throw new RuntimeException('Unknown stored clan');
+        $clans[$row['name']] = $row['clan'] === 'none' ? [] : [$row['clan']];
+    }
+    return array_filter($clans);
+}
+
 // Each tracked member's account state over the period; a skill first seen mid-period starts at its first observation.
 function clan_members(PDO $db, string $clan, string $period, int $now): array {
-    $members = fetch_rows($db, 'SELECT p.id, p.name, (SELECT c.level FROM current c WHERE c.player_id = p.id AND c.type = 0) AS level FROM character_clans cc JOIN players p ON p.name = cc.name WHERE cc.clan = ? AND EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id AND x.type > 0) ORDER BY p.name', [$clan]);
+    $names = array_keys(array_filter(clan_map($db), fn($clans) => in_array($clan, $clans, true)));
+    if (!$names) return [];
+    $members = fetch_rows($db, 'SELECT p.id, p.name, (SELECT c.level FROM current c WHERE c.player_id = p.id AND c.type = 0) AS level FROM players p WHERE p.name IN (' . implode(',', array_fill(0, count($names), '?')) . ') AND EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id AND x.type > 0) ORDER BY p.name', array_map('strval', $names));
     if (!$members) return [];
     $start = $now - PERIODS[$period];
     $ids = array_column($members, 'id');
@@ -62,12 +77,25 @@ function youtube_video(string $id): array {
 }
 
 // Videos come from the clan owner's own posts in its forum thread, so replies cannot add videos to the clan page.
-function refresh_clan_videos(PDO $db): void {
+function refresh_clans(PDO $db): void {
     $errors = [];
     foreach (CLANS as $key => $clan) {
         try {
             $get = fn(string $path) => json_decode(file_get_contents("https://lostcity.rs$path", false, stream_context_create(['http' => ['timeout' => 15]])) ?: throw new RuntimeException("Fetching forum $path failed: " . ($http_response_header[0] ?? 'no response')), true, flags: JSON_THROW_ON_ERROR);
-            $owner = $get("/t/{$clan['topic']}.json")['details']['created_by']['username'] ?? throw new RuntimeException("Forum topic {$clan['topic']} has no author");
+            $topic = $get("/t/{$clan['topic']}.json");
+            $owner = $topic['details']['created_by']['username'] ?? throw new RuntimeException("Forum topic {$clan['topic']} has no author");
+            $roster = $clan['roster'];
+            if ($roster === null) {
+                $text = html_entity_decode(strip_tags($topic['post_stream']['posts'][0]['cooked']), ENT_QUOTES);
+                preg_match('/Current members:\s*([^\n]+)/', $text, $m) ?: throw new RuntimeException("No 'Current members:' list in forum topic {$clan['topic']}");
+                $roster = preg_split('/\s*,\s*/', trim($m[1]));
+            }
+            $roster = array_unique(array_map('safe_name', $roster));
+            transaction($db, "saving $key roster", function () use ($db, $key, $roster) {
+                $db->prepare('DELETE FROM clan_roster WHERE clan = ?')->execute([$key]);
+                $insert = $db->prepare('INSERT INTO clan_roster (clan, name) VALUES (?, ?)');
+                foreach ($roster as $name) $insert->execute([$key, $name]);
+            });
             $thread = $get("/t/{$clan['topic']}.json?username_filters=" . rawurlencode($owner))['post_stream'];
             $posts = $thread['posts'];
             foreach (array_chunk(array_diff($thread['stream'], array_column($posts, 'id')), 20) as $chunk) array_push($posts, ...$get("/t/{$clan['topic']}/posts.json?" . http_build_query(['post_ids' => $chunk]))['post_stream']['posts']);
@@ -88,5 +116,5 @@ function refresh_clan_videos(PDO $db): void {
             $errors[] = "$key: " . $e->getMessage();
         }
     }
-    if ($errors) throw new RuntimeException('Clan video refresh failed: ' . implode('; ', $errors));
+    if ($errors) throw new RuntimeException('Clan refresh failed: ' . implode('; ', $errors));
 }

@@ -86,6 +86,12 @@ function achievements(array $rows, int $now, array $clans): string {
     foreach ($rows as $r) $html .= '<div class="achievement">' . (isset($r['name']) ? player_link($r['name'], $clans) : '<span>' . e(SKILLS[$r['type']]) . '</span>') . '<b>' . (isset($r['name']) ? e(SKILLS[$r['type']]) . ' ' . fmt($r['level']) : fmt($r['prev_level']) . ' → ' . fmt($r['level'])) . '</b><small>' . ago($r['at'], $now) . '</small></div>';
     return $html;
 }
+function chart_frame(string $svg): string {
+    return '<div class="chart-wrap">' . $svg . '<div class="chart-tooltip" role="tooltip" hidden></div></div>';
+}
+function chart_point(float $x, float $y, string $tip): string {
+    return '<g class="pt" tabindex="0" aria-label="' . e($tip) . '"><circle class="hit" cx="' . $x . '" cy="' . $y . '" r="18"/><circle class="chart-point" cx="' . $x . '" cy="' . $y . '" r="3"/></g>';
+}
 // $lines: one or more ['points' => [['at', 'value'], ...], 'label' => ?string, 'color' => ?string].
 function chart(array $lines, string $name, string $unit, array $s, bool $daily = false, int $height = 226): string {
     $points = array_merge(...array_column($lines, 'points'));
@@ -117,13 +123,12 @@ function chart(array $lines, string $name, string $unit, array $s, bool $daily =
         $html .= '<g' . (isset($l['color']) ? ' style="--chart:' . e($l['color']) . '"' : '') . '><polyline class="xp-line" points="' . implode(' ', array_map(fn($p) => $x($p['at']) . ',' . $y($p['value']), $l['points'])) . '"/>';
         foreach ($l['points'] as $p) {
             $px = $x($p['at']); $py = $y($p['value']);
-            $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
             $tip = (isset($l['label']) ? $l['label'] . ': ' : '') . fmt($unit === 'EHP' ? round($p['value']) : $p['value']) . ' ' . $unit . ' · ' . gmdate($daily ? 'j M Y' : 'j M H:i', (int) ($p['at'] / 1000)) . ' UTC';
-            $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($tip) . '</text></g>';
+            $html .= chart_point($px, $py, $tip);
         }
         $html .= '</g>';
     }
-    return $html . '<g class="axis"><text x="62" y="' . ($height - 11) . '">' . ($daily ? gmdate('j M Y', (int) ($start / 1000)) : PERIOD_LABELS[$s['period']]) . '</text><text x="720" y="' . ($height - 11) . '" text-anchor="end">' . ($daily ? 'Today (UTC)' : 'Now') . '</text></g></svg>';
+    return chart_frame($html . '<g class="axis"><text x="62" y="' . ($height - 11) . '">' . ($daily ? gmdate('j M Y', (int) ($start / 1000)) : PERIOD_LABELS[$s['period']]) . '</text><text x="720" y="' . ($height - 11) . '" text-anchor="end">' . ($daily ? 'Today (UTC)' : 'Now') . '</text></g></svg>');
 }
 function ehp_inventory(array $ehp, string $name): string {
     $skills = array_filter($ehp, fn($value, $type) => $type !== 0 && $value > 0, ARRAY_FILTER_USE_BOTH);
@@ -321,13 +326,12 @@ function plot(array $lines, string $name, float $xmax, array $xticks, callable $
     foreach ($lines as $l) {
         $html .= '<g' . (isset($l['key']) ? ' class="line-' . $l['key'] . '"' : '') . (isset($l['color']) ? ' style="--chart:' . e($l['color']) . '"' : '') . '><polyline class="xp-line" points="' . implode(' ', array_map(fn($p) => $x($p['x']) . ',' . $y($p['y']), $l['points'])) . '"/>';
         foreach ($l['points'] as $p) {
-            $px = $x($p['x']); $py = $y($p['y']); $anchor = $px > 600 ? 'end' : ($px < 160 ? 'start' : 'middle');
-            $html .= '<g class="pt" tabindex="0"><circle class="hit" cx="' . $px . '" cy="' . $py . '" r="12"/><circle class="chart-point" cx="' . $px . '" cy="' . $py . '" r="3"/><text class="tip" x="' . $px . '" y="' . ($py < 60 ? $py + 24 : $py - 12) . '" text-anchor="' . $anchor . '">' . e($p['tip']) . '</text></g>';
+            $html .= chart_point($x($p['x']), $y($p['y']), $p['tip']);
         }
         $html .= '</g>';
     }
-    foreach ($xticks as $v => $label) $html .= '<text class="axis" x="' . $x($v) . '" y="215" text-anchor="middle">' . e($label) . '</text>';
-    return $html . '</svg>';
+    foreach (array_keys($xticks) as $i => $v) $html .= '<text class="axis' . ($i % 2 ? ' minor-tick' : '') . '" x="' . $x($v) . '" y="215" text-anchor="' . ($i === 0 ? 'start' : ($i === count($xticks) - 1 ? 'end' : 'middle')) . '">' . e($xticks[$v]) . '</text>';
+    return chart_frame($html . '</svg>');
 }
 const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];
 function stats_view(array $s, array $d): string {
@@ -399,7 +403,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['canonical']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=29"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=30"><script src="/app.js?v=12" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

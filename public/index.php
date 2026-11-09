@@ -42,6 +42,7 @@ if (rawurldecode($path) !== $s['canonical']) {
 }
 $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'] === null ? 'clan-hiscores' : 'clan', default => $s['view']}, 'name' => $s['name'], 'type' => (string) $s['type'], 'period' => $s['period'], 'clan' => (string) $s['clan'], 'day' => $s['day'] ?? 'all'];
 if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
+if ($s['view'] === 'youtube') $query += array_intersect_key($_GET, ['page' => true]);
 $d = get_data($db, $query, $now);
 if ($d === null) http_response_code(404);
 echo document($s + ['meta' => card_meta($s, $d)], page_body($s, $d));

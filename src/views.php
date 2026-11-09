@@ -2,7 +2,7 @@
 require_once __DIR__ . '/data.php';
 const PERIOD_LABELS = ['24h' => 'Last 24 hours', '7d' => '7 days ago', '30d' => '30 days ago'];
 // The unnamed first group has no heading.
-const NAV = ['' => ['home' => 'Home'], 'Rankings' => ['hiscores' => 'Hiscores', 'records' => 'XP records', 'clans' => 'Clans'], 'World' => ['stats' => 'World stats', 'players' => 'Players online'], 'Guides' => ['guides' => 'EHP rates']];
+const NAV = ['' => ['home' => 'Home'], 'Rankings' => ['hiscores' => 'Hiscores', 'records' => 'XP records', 'clans' => 'Clans'], 'World' => ['stats' => 'World stats', 'players' => 'Players online'], 'Community' => ['guides' => 'EHP rates', 'youtube' => 'YouTube']];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -145,7 +145,9 @@ function home_view(array $s, array $d): string {
         foreach ($d['weekly'] as $r) $html .= '<div class="winner"><small>' . e($r['week']) . '</small>' . player_link($r['name'], $s['clans']) . '<b>' . ehp($r['ehp']) . ' <span>EHP</span></b></div>';
         $html .= '</section>';
     }
-    return $html . '</aside></div>';
+    $html .= '<section class="panel recent-videos"><div class="panel-heading"><h2>Recent videos</h2><a href="/youtube">All →</a></div>' . ($d['videos'] ? '' : empty_message('None in the last 12 hours.'));
+    foreach ($d['videos'] as $v) $html .= '<a class="video" href="' . youtube_url($v) . '" target="_blank" rel="noopener" title="' . e($v['title']) . '"><img src="' . youtube_thumb($v) . '" alt="" loading="lazy" width="80" height="45"><span>' . e($v['title']) . '</span><small>' . e($v['channel']) . ' · ' . ago($v['published_at'], $s['now']) . '</small></a>';
+    return $html . '</section></aside></div>';
 }
 function player_view(array $s, ?array $d): string {
     if ($d === null) return '<div class="page-heading"><h1>' . player_name($s['name'], $s['clans']) . '</h1></div>' . empty_message('Not tracked yet.') . search_form(str_replace('_', ' ', $s['name']));
@@ -234,6 +236,27 @@ function guides_view(array $s, array $d): string {
     $rows = $d[$s['skill']] ?? throw new RuntimeException('Missing skill guide');
     $cells = array_map(fn($r) => [e($r['min_level'] . '–' . $r['max_level']), e(trim(preg_replace('~https?://\S+~', '', $r['method']))), fmt($r['rate'])], $rows);
     return '<div class="page-heading"><h1>EHP</h1></div>' . skill_tabs($s, true) . '<section class="panel guide-copy"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div>' . ($cells ? table(['Level', 'Method', 'XP/h'], $cells, $s['skill'] . ' rates') : empty_message('Passive combat XP.')) . '</section><p class="guide-credit">Based on 2004Tracker by ' . player_link('pasta', $s['clans']) . '</p>';
+}
+function youtube_url(array $v): string {return e('https://www.youtube.com/watch?v=' . rawurlencode($v['video_id']));}
+function youtube_thumb(array $v): string {return e('https://i.ytimg.com/vi/' . rawurlencode($v['video_id']) . '/mqdefault.jpg');}
+function youtube_age(int $at, int $now): string {
+    $days = intdiv($now - $at, 86400000);
+    if ($days < 2) return ago($at, $now);
+    [$n, $unit] = $days >= 365 ? [intdiv($days, 365), 'year'] : ($days >= 30 ? [intdiv($days, 30), 'month'] : ($days >= 7 ? [intdiv($days, 7), 'week'] : [$days, 'day']));
+    return "$n $unit" . ($n > 1 ? 's' : '') . ' ago';
+}
+function youtube_view(array $s, array $d): string {
+    $html = '<div class="page-heading"><div><h1>YouTube</h1><span class="muted">Help the community grow! Likes, subscribes, and comments boost 2004scape content to more people on YouTube!</span></div></div><section class="panel yt-list">' . ($d['videos'] ? '' : empty_message('No videos yet.'));
+    foreach ($d['videos'] as $v) {
+        // Descriptions often open with links or hashtags; the first line of prose is the useful part.
+        $summary = preg_split('~\R~', trim(preg_replace('~https?://\S+|#\S+~', '', $v['description'])))[0];
+        $html .= '<article><a href="' . youtube_url($v) . '" target="_blank" rel="noopener"><img src="' . youtube_thumb($v) . '" alt="" loading="lazy" width="320" height="180"></a><div><h2><a href="' . youtube_url($v) . '" target="_blank" rel="noopener">' . e($v['title']) . '</a></h2><small><a href="https://www.youtube.com/channel/' . e($v['channel_id']) . '" target="_blank" rel="noopener">' . e($v['channel']) . '</a> · ' . fmt($v['views']) . ' views · <time title="' . gmdate('j M Y H:i', (int) ($v['published_at'] / 1000)) . ' UTC">' . youtube_age($v['published_at'], $s['now']) . '</time></small>' . ($summary === '' ? '' : '<p>' . e($summary) . '</p>') . '</div></article>';
+    }
+    $link = fn(int $page, string $text) => '<a href="' . url('/youtube', $page === 1 ? [] : ['page' => $page]) . '"' . ($page === $d['page'] && is_numeric($text) ? ' aria-current="true"' : '') . '>' . $text . '</a>';
+    $first = ($d['page'] - 1) * YOUTUBE_PAGE;
+    $html .= '<div class="pager"><small>' . fmt($first + min(1, count($d['videos']))) . '–' . fmt($first + count($d['videos'])) . ' of ' . fmt($d['total']) . ' videos</small><nav class="segments" aria-label="Pages">' . ($d['page'] > 1 ? $link($d['page'] - 1, '‹ Newer') : '');
+    foreach (range(1, $d['pages']) as $page) $html .= $link($page, (string) $page);
+    return $html . ($d['page'] < $d['pages'] ? $link($d['page'] + 1, 'Older ›') : '') . '</nav></div></section>';
 }
 function settings_view(array $s, array $profiles): string {
     $body = '<div class="page-heading"><h1>Settings</h1></div><section class="panel"><h2>Character clans</h2>';
@@ -369,7 +392,7 @@ function account_nav(array $s): string {
     return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a></nav>';
 }
 function page_body(array $s, $d): string {
-    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d)};
+    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d), 'youtube' => youtube_view($s, $d)};
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
@@ -378,7 +401,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['canonical']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=27"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=28"><script src="/app.js?v=11" defer></script></head><body>' . $notice . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records/Overall', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

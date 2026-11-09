@@ -14,3 +14,4 @@ CREATE TABLE character_clans (name VARCHAR(12) PRIMARY KEY, discord_id VARCHAR(2
 CREATE TABLE ehp_weeks (week_at BIGINT PRIMARY KEY, start_at BIGINT NOT NULL, end_at BIGINT NOT NULL, player_id INT, gain DOUBLE NOT NULL, model VARCHAR(64) NOT NULL);
 CREATE TABLE clan_roster (clan VARCHAR(16) NOT NULL, name VARCHAR(12) NOT NULL, PRIMARY KEY (clan, name), KEY (name));
 CREATE TABLE clan_videos (clan VARCHAR(16) NOT NULL, video_id VARCHAR(11) NOT NULL, title VARCHAR(255), channel VARCHAR(255), shared_at BIGINT NOT NULL, PRIMARY KEY (clan, video_id));
+CREATE TABLE youtube_videos (video_id VARCHAR(11) PRIMARY KEY, channel_id VARCHAR(24) NOT NULL, channel VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, description TEXT NOT NULL, views INT NOT NULL, published_at BIGINT NOT NULL, KEY (published_at));

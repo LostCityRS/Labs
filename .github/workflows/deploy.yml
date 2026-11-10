@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check PHP and deployment script
+        run: |
+          find src public -name '*.php' -print0 | xargs -0 -n 1 php8.3 -l
+          bash -n .github/deploy.sh
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://labs.lostcity.rs
+    steps:
+      - name: Deploy checked commit
+        env:
+          DEPLOY_KEY: ${{ secrets.LABS_DEPLOY_KEY }}
+          DEPLOY_HOST: ${{ vars.LABS_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.LABS_DEPLOY_USER }}
+          KNOWN_HOSTS: ${{ vars.LABS_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          : "${DEPLOY_KEY:?Missing LABS_DEPLOY_KEY}" "${DEPLOY_HOST:?Missing LABS_DEPLOY_HOST}"
+          : "${DEPLOY_USER:?Missing LABS_DEPLOY_USER}" "${KNOWN_HOSTS:?Missing LABS_DEPLOY_KNOWN_HOSTS}"
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy-key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/known_hosts"
+          trap 'rm -f "$RUNNER_TEMP/deploy-key"' EXIT
+          ssh -i "$RUNNER_TEMP/deploy-key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" \
+            -o ConnectTimeout=15 "$DEPLOY_USER@$DEPLOY_HOST" "deploy $GITHUB_SHA"
+      - name: Check live website
+        run: |
+          curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 30 \
+            "https://labs.lostcity.rs/?deploy=$GITHUB_SHA" -o "$RUNNER_TEMP/labs-home.html"
+          grep -q '<h2>Recent 99s</h2>' "$RUNNER_TEMP/labs-home.html"
+          printf 'Deployed `%s` and checked https://labs.lostcity.rs\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

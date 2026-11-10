@@ -72,7 +72,7 @@ function get_data(PDO $db, array $params, int $now) {
         'home' => [
             'gainers' => $fetch('SELECT name, gain FROM gains JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 10', [$period, $type]),
             'newest' => $fetch('SELECT name, first_seen, c.level FROM players JOIN current c ON c.player_id = id AND c.type = 0 ORDER BY first_seen DESC LIMIT 5'),
-            'nineties' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level = 99 ORDER BY at DESC LIMIT 5'),
+            'nineties' => $fetch('SELECT name, type, level, prev_level, at FROM levels JOIN players ON id = player_id WHERE level = 99 AND at >= ? ORDER BY at DESC LIMIT 5', [$now - 3 * DAY_MS]),
             'weekly' => ehp_winners($db),
             'videos' => $fetch('SELECT video_id, title, channel, published_at FROM youtube_videos WHERE published_at >= ? ORDER BY published_at DESC', [$now - 43200000]),
         ],

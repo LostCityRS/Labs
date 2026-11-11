@@ -227,12 +227,10 @@ function records_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>XP records</h1></div>' . skill_tabs($s) . '<section class="panel"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div><div class="boards">';
     foreach (['6h' => '6 hour', '24h' => '24 hour'] as $period => $label) {
         $best = $d[$period][0] ?? null;
-        $when = fn($r) => $period === '6h'
-            ? 'Logout update received ' . gmdate('j M Y H:i:s', (int) ($r['end_at'] / 1000)) . ' UTC · Single update; game sessions are limited to 6 hours'
-            : gmdate('j M Y H:i:s', (int) ($r['start_at'] / 1000)) . ' – ' . gmdate('j M Y H:i:s', (int) ($r['end_at'] / 1000)) . ' UTC · ' . round(($r['end_at'] - $r['start_at']) / 3600000, 2) . ' hours between logout updates';
+        $when = fn($r) => gmdate('j M Y H:i:s', (int) ($r['start_at'] / 1000)) . ' – ' . gmdate('j M Y H:i:s', (int) ($r['end_at'] / 1000)) . ' UTC · ' . round(($r['end_at'] - $r['start_at']) / 3600000, 2) . ' hours between logout updates' . ($period === '6h' ? ' · Single logout update' : '');
         $html .= '<div><div class="holder"><small>' . $label . ' record</small>' . ($best ? '<strong title="' . e($when($best)) . '">' . xp($best['gain']) . '</strong>' . player_link($best['name'], $s['clans']) : empty_message('Nobody yet.')) . '</div>' . ($d[$period] ? table(['#', 'Player', 'XP'], array_map(fn($r, $i) => [$i + 1, player_link($r['name'], $s['clans']), '<span class="gain" title="' . e($when($r)) . '">' . xp($r['gain']) . '</span>'], $d[$period], array_keys($d[$period])), $s['skill'] . ' ' . $label . ' records') : '') . '</div>';
     }
-    return $html . '</div><p class="muted">6h: largest single logout update; the game limits sessions to 6 hours. 24h: gains between logout updates at most 24 hours apart. Times are when Labs received updates.</p></section>';
+    return $html . '</div><p class="muted">6h: largest single logout update between observations at most 6 hours apart. 24h: gains between logout updates at most 24 hours apart. Times are when Labs received updates.</p></section>';
 }
 function players_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Players</h1></div>';

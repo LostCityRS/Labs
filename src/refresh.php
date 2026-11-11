@@ -2,7 +2,7 @@
 // Cron, every 5 minutes, including 00:00 UTC.
 require __DIR__ . '/lib.php';
 if (($argv[1] ?? null) === '--ehp') {rebuild_ehp($db); exit;}
-if (($argv[1] ?? null) === '--records') {rebuild_records($db); exit;}
+if (($argv[1] ?? null) === '--records') {rebuild_records($db, isset($argv[2]) ? [$argv[2]] : array_keys(RECORDS)); exit;}
 // A count-site outage must not stop XP gains and weekly awards from refreshing.
 try {
     refresh_players($db, $now, function () use ($now) {

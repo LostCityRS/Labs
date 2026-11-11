@@ -74,7 +74,7 @@ function import_once(PDO $db, string $name, array $stats, int $at, bool $logout)
         if ($prev && $type > 0 && $level > $prev['level']) $levelUp->execute([$id, $type, $level, $prev['level'], $at]);
         if (!$logout) continue;
         // An enrollment lookup can return XP from before the lookup, even midway through a session.
-        if ($prev && $prev['at'] > $first && $value > $prev['value']) $record->execute(['6h', $type, $id, $value - $prev['value'], $prev['at'], $at]);
+        if ($prev && $prev['at'] > $first && $at - $prev['at'] <= RECORDS['6h'] && $value > $prev['value']) $record->execute(['6h', $type, $id, $value - $prev['value'], $prev['at'], $at]);
         // An unchanged logout still proves a boundary; dropping it can discard a whole session.
         $windowStart->execute([$id, $type, $at - RECORDS['24h'], $at, $first]);
         $start = $windowStart->fetch();
@@ -85,18 +85,22 @@ function import_once(PDO $db, string $name, array $stats, int $at, bool $logout)
     return $imported;
 }
 
-function rebuild_records(PDO $db): void {
+function rebuild_records(PDO $db, array $periods = ['6h', '24h']): void {
+    foreach ($periods as $period) if (!isset(RECORDS[$period])) throw new InvalidArgumentException("Unknown record period: $period");
     $start = microtime(true);
-    $players = fetch_rows($db, 'SELECT id FROM players p WHERE EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id) ORDER BY id');
-    foreach ($players as ['id' => $id]) transaction($db, "rebuilding records for $id", function () use ($db, $id) {
+    $players = fetch_rows($db, 'SELECT id FROM players p WHERE EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id AND x.at > p.first_seen) ORDER BY id');
+    $types = implode(',', array_keys(SKILLS));
+    foreach ($players as ['id' => $id]) transaction($db, "rebuilding records for $id", function () use ($db, $id, $periods, $types) {
         // Match the import lock and release it per player, so a rebuild cannot stall every logout.
         fetch_rows($db, 'SELECT id FROM players WHERE id = ? FOR UPDATE', [$id]);
-        $db->prepare("DELETE FROM records WHERE player_id = ? AND period IN ('6h', '24h')")->execute([$id]);
-        foreach (['6h' => ['DESC', ''], '24h' => ['ASC', ' AND b.at >= x.at - ' . RECORDS['24h']]] as $period => [$order, $cutoff]) {
-            $db->prepare("INSERT INTO records SELECT ?, x.type, x.player_id, x.value - s.value, s.at, x.at FROM xp x JOIN players p ON p.id = x.player_id JOIN xp s ON s.player_id = x.player_id AND s.type = x.type AND s.at = (SELECT b.at FROM xp b WHERE b.player_id = x.player_id AND b.type = x.type AND b.at > p.first_seen AND b.at < x.at$cutoff ORDER BY b.at $order LIMIT 1) WHERE x.player_id = ? AND x.value > s.value ORDER BY x.at" . RECORD_UPDATE)->execute([$period, $id]);
+        foreach ($periods as $period) {
+            $db->prepare("DELETE FROM records WHERE player_id = ? AND period = ? AND type IN ($types)")->execute([$id, $period]);
+            $order = $period === '6h' ? 'DESC' : 'ASC';
+            $ms = RECORDS[$period];
+            $db->prepare("INSERT INTO records SELECT ?, x.type, x.player_id, x.value - s.value, s.at, x.at FROM xp x JOIN players p ON p.id = x.player_id JOIN xp s ON s.player_id = x.player_id AND s.type = x.type AND s.at = (SELECT b.at FROM xp b WHERE b.player_id = x.player_id AND b.type = x.type AND b.at > p.first_seen AND b.at >= x.at - $ms AND b.at < x.at ORDER BY b.at $order LIMIT 1) WHERE x.player_id = ? AND x.value > s.value ORDER BY x.at" . RECORD_UPDATE)->execute([$period, $id]);
         }
     });
-    error_log('Labs: rebuilt single-update 6h and bounded-window 24h records for ' . count($players) . ' players in ' . round(microtime(true) - $start, 2) . 's');
+    error_log('Labs: rebuilt ' . implode(', ', $periods) . ' records for ' . count($players) . ' players in ' . round(microtime(true) - $start, 2) . 's');
 }
 
 // Gains change as time passes, so cron refreshes everyone; a new logout refreshes just that player.

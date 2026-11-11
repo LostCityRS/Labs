@@ -11,13 +11,19 @@ require __DIR__ . '/../src/lib.php';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 if (auth_routes($db, $path)) exit;
 if ($path === '/search' && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = safe_name(parameter($_POST, 'name'));
+    $value = parameter($_POST, 'name');
+    try {$name = safe_name($value);}
+    catch (InvalidArgumentException $e) {
+        http_response_code(400);
+        echo document(['view' => 'home'], search_view($value, $e->getMessage()));
+        exit;
+    }
     if (fetch_rows($db, 'SELECT id FROM players WHERE name = ?', [$name]) || track_player($db, $name, $now) !== null) {
         header('Location: /player/' . rawurlencode($name), true, 303);
         exit;
     }
     http_response_code(404);
-    echo document(['view' => 'home'], '<div class="page-heading"><h1>Find player</h1></div>' . search_form($name, str_replace('_', ' ', $name) . ' is not on the hiscores.'));
+    echo document(['view' => 'home'], search_view($name, str_replace('_', ' ', $name) . ' is not on the hiscores.'));
     exit;
 }
 if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'HEAD'])) {

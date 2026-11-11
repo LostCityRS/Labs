@@ -36,6 +36,9 @@ function ago(int $at, int $now): string {
 function search_form(string $value = '', string $error = ''): string {
     return '<form id="search" class="panel" action="/search" method="post" role="search"><div><input name="name" aria-label="Player name" placeholder="Player name" autocomplete="off" maxlength="12" required value="' . e($value) . '"><button type="submit">Find player</button></div><span id="search-error" role="status">' . e($error) . '</span></form>';
 }
+function search_view(string $value, string $error): string {
+    return '<div class="page-heading"><h1>Find player</h1></div>' . search_form($value, $error);
+}
 function skill_select(array $s): string {
     $action = $s['view'] === 'player' ? '/player/' . $s['name'] : $s['canonical'];
     $html = '<form class="skill-filter" action="' . url($action) . '" method="get"><input type="hidden" name="period" value="' . e($s['period']) . '"><label class="select-label">Skill<select name="skill">';
@@ -395,8 +398,7 @@ function clan_view(array $s, array $d): string {
     return $html . '<section class="panel"><h2>Members · ' . fmt(count($members)) . '</h2>' . table(['Player', 'Total level', 'EHP', $metric . ' gained'], $cells, $clan['name'] . ' members', 'EHP') . '</section>';
 }
 function account_nav(array $s): string {
-    if (!array_key_exists('user', $s)) return '';
-    if ($s['user'] === null) return '<nav class="account-nav" aria-label="Account"><a href="/login">Login</a></nav>';
+    if (auth_user() === null) return '<nav class="account-nav" aria-label="Account"><a href="/login">Login</a></nav>';
     return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a></nav>';
 }
 function page_body(array $s, $d): string {

@@ -13,4 +13,10 @@ foreach ([
     $s = page_state($uri, $params, $now);
     expect($s['section'] === $section && $s['canonical'] === $canonical, "Incorrect Records route: $uri");
 }
-echo "Behavior: Records URL compatibility passed\n";
+$html = search_view('<bad>', 'Invalid username: <bad>');
+expect(str_contains($html, 'value="&lt;bad&gt;"') && str_contains($html, 'Invalid username: &lt;bad&gt;'), 'Invalid searches must retain escaped input and an inline error');
+expect(str_contains(account_nav(['view' => 'error']), 'href="/login"'), 'Public error pages must retain Login');
+$_SESSION['user'] = ['id' => 'test', 'expires' => time() + 60];
+expect(str_contains(account_nav(['view' => 'error']), 'href="/settings"'), 'Signed-in error pages must retain Settings');
+unset($_SESSION['user']);
+echo "Behavior: Records URLs and search/error recovery passed\n";

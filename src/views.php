@@ -243,7 +243,7 @@ function xp_records_view(array $s, array $d): string {
 }
 function players_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Players</h1></div>';
-    foreach (['observed' => ['Daily observed players', 'Tracked accounts that had XP today', 'No complete days yet.'], 'online' => ['Players online', 'Sampled at midnight UTC', 'Waiting for the first midnight snapshot.']] as $key => [$title, $note, $pending]) $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>' . e($title) . '</h2></div><p class="muted">' . e($note) . '</p>' . ($d[$key] ? chart([['points' => $d[$key]]], $title, 'players', $s, true) : empty_message($pending)) . '</section>';
+    foreach (['observed' => ['Daily observed players', 'Tracked accounts observed per completed UTC day', 'No complete days yet.'], 'online' => ['Players online', 'Sampled at midnight UTC', 'Waiting for the first midnight snapshot.']] as $key => [$title, $note, $pending]) $html .= '<section class="panel graph-panel"><div class="panel-heading"><h2>' . e($title) . '</h2></div><p class="muted">' . e($note) . '</p>' . ($d[$key] ? chart([['points' => $d[$key]]], $title, 'players', $s, true) : empty_message($pending)) . '</section>';
     return $html;
 }
 function guides_view(array $s, array $d): string {

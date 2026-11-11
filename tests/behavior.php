@@ -21,4 +21,6 @@ expect(str_contains(account_nav(['view' => 'error']), 'href="/settings"'), 'Sign
 unset($_SESSION['user']);
 $html = achievements_view(['tm' => ['crandor']]);
 expect(substr_count($html, 'class="clan-icon"') === 2 && str_contains($html, 'title="Crandor"'), 'Both Tm achievement links must use the current clan map');
-echo "Behavior: Records URLs, search/error recovery and clan badges passed\n";
+$html = players_view(page_state('/players', [], $now), ['observed' => [], 'online' => []]);
+expect(str_contains($html, 'per completed UTC day') && !str_contains($html, 'XP today'), 'Observed-player caption must describe completed UTC days');
+echo "Behavior: Records URLs, search/error recovery, clan badges and observation captions passed\n";

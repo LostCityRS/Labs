@@ -2,7 +2,7 @@
 function achievement_id(array $r): string {return $r['kind'] . ':' . $r['type'] . ':' . $r['goal'];}
 function achievement_catalog(): array {
     $slot = fn($kind, $type, $goal, $label, $tier, $art = null) => compact('kind', 'type', 'goal', 'label', 'tier', 'art');
-    $rows = [$slot('total-level', 0, 1000, 'First 1,000 total level', '1K'), $slot('total-level', 0, 1881, 'First to max (1,881 total level)', 'MAX', 'max-crest.svg'), $slot('combat', 1, 126, 'First 126 combat', '126')];
+    $rows = [$slot('total-level', 0, 1000, 'First 1,000 total level', '1K'), $slot('total-level', 0, 1881, 'First to max (1,881 total level)', 'MAX', 'max-crest.png'), $slot('combat', 1, 126, 'First 126 combat', '126')];
     foreach ([50 => 'bronze', 100 => 'steel', 200 => 'mithril', 500 => 'rune', 1000 => 'dragon'] as $millions => $metal) {
         $tier = $millions === 1000 ? '1B' : $millions . 'M';
         $rows[] = $slot('total-xp', 0, $millions * 1000000, "First $tier total XP", $tier, "$metal-med.png");
@@ -81,7 +81,7 @@ function historical_badges(string $name, int $now): string {
     $rows = array_filter(record_achievements(), fn($r) => isset($r['name']) && $r['name'] === $name);
     uasort($rows, fn($a, $b) => ($a['kind'] === 'total-xp') <=> ($b['kind'] === 'total-xp') ?: $a['at'] <=> $b['at']);
     $reigns = array_values(array_filter(rank_reigns($now), fn($r) => $r['name'] === $name));
-    if ($reigns) array_unshift($rows, ['label' => 'Rank 1 overall', 'type' => 0, 'tier' => '', 'art' => 'crown.svg', 'reigns' => $reigns] + $reigns[0]);
+    if ($reigns) array_unshift($rows, ['label' => 'Rank 1 overall', 'type' => 0, 'tier' => '', 'art' => 'crown.png', 'reigns' => $reigns] + $reigns[0]);
     return $rows ? '<div class="historical-badges" aria-label="Historical records">' . implode('', array_map('achievement_icon', $rows)) . '</div>' : '';
 }
 function achievement_filter(): string {

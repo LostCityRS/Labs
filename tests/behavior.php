@@ -38,4 +38,9 @@ try {page_state('/stats', ['hide' => 'nonsense'], $now); throw new LogicExceptio
 catch (InvalidArgumentException $e) {}
 $html = xp_records_view(page_state('/records/Overall', [], $now) + ['clans' => []], ['6h' => [], '24h' => []]);
 expect(str_contains($html, 'Overall · all skills combined'), 'Overall records must identify the combined skill scope');
-echo "Behavior: routing, error recovery, affiliation, data labels and URL chart filters passed\n";
+foreach (['max-crest.png' => 32, 'crown.png' => 16] as $art => $size) {
+    $path = __DIR__ . '/../public/assets/records/' . $art;
+    $image = getimagesize($path);
+    expect($image[0] === $size && $image[1] === $size && $image[2] === IMAGETYPE_PNG && filesize($path) < 1024, "Record artwork must remain a tiny native-resolution PNG: $art");
+}
+echo "Behavior: routing, error recovery, affiliation, data labels, URL chart filters and pixel artwork passed\n";

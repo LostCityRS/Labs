@@ -23,4 +23,9 @@ $html = achievements_view(['tm' => ['crandor']]);
 expect(substr_count($html, 'class="clan-icon"') === 2 && str_contains($html, 'title="Crandor"'), 'Both Tm achievement links must use the current clan map');
 $html = players_view(page_state('/players', [], $now), ['observed' => [], 'online' => []]);
 expect(str_contains($html, 'per completed UTC day') && !str_contains($html, 'XP today'), 'Observed-player caption must describe completed UTC days');
-echo "Behavior: Records URLs, search/error recovery, clan badges and observation captions passed\n";
+$emptyClans = array_fill_keys(array_keys(CLANS), ['members' => [], 'levels' => []]);
+foreach (['ehp' => 'Levels gained', 'xp' => 'XP gained'] as $metric => $heading) {
+    $html = clan_hiscores_view(page_state('/clans', ['metric' => $metric], $now), $emptyClans);
+    expect(str_contains($html, '>' . $heading . '</th>'), "Clan gains must declare their actual unit: $metric");
+}
+echo "Behavior: routing, error recovery, affiliation and data labels passed\n";

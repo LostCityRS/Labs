@@ -44,5 +44,5 @@ $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'
 if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
 if ($s['view'] === 'youtube') $query += array_intersect_key($_GET, ['page' => true]);
 $d = get_data($db, $query, $now);
-if ($d === null) http_response_code(404);
+if ($d === null && ($s['view'] !== 'player' || !has_historical_record($s['name']))) http_response_code(404);
 echo document($s + ['meta' => card_meta($s, $d)], page_body($s, $d));

@@ -11,7 +11,7 @@ function card_meta(array $s, $d): array {
     }
     if ($s['view'] === 'clans' && $s['clan'] !== null) return [fmt(count($d['members'])) . ' members · Total level ' . fmt(clan_total_level($d['levels'], 'total')) . ' · ' . ehp(array_sum(array_map(fn($m) => end($m['series'])['ehp'], $d['members']))) . ' EHP', '/og/clans/' . $s['clan']];
     if ($s['view'] === 'stats') return ['+' . fmt($d['today']) . ' XP today · +' . fmt($d['week']) . ' XP this week · ' . fmt($d['players']) . ' tracked players', '/og/stats'];
-    return ['XP tracker for Lost City: hiscores, XP records, clans and EHP.', '/og'];
+    return ['XP tracker for Lost City: hiscores, records, clans and EHP.', '/og'];
 }
 
 function card_image(PDO $db, string $path, int $now): GdImage {

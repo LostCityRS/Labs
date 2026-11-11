@@ -19,4 +19,6 @@ expect(str_contains(account_nav(['view' => 'error']), 'href="/login"'), 'Public 
 $_SESSION['user'] = ['id' => 'test', 'expires' => time() + 60];
 expect(str_contains(account_nav(['view' => 'error']), 'href="/settings"'), 'Signed-in error pages must retain Settings');
 unset($_SESSION['user']);
-echo "Behavior: Records URLs and search/error recovery passed\n";
+$html = achievements_view(['tm' => ['crandor']]);
+expect(substr_count($html, 'class="clan-icon"') === 2 && str_contains($html, 'title="Crandor"'), 'Both Tm achievement links must use the current clan map');
+echo "Behavior: Records URLs, search/error recovery and clan badges passed\n";

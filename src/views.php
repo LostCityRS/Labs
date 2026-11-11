@@ -230,7 +230,7 @@ function hiscores_view(array $s, array $rows): string {
 function records_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Records</h1></div><nav class="record-nav" aria-label="Record collection">';
     foreach (['achievements' => ['Achievements', '/records'], 'rank' => ['Rank one', '/records?section=rank'], 'xp' => ['XP gains', '/records/Overall']] as $section => [$label, $href]) $html .= '<a href="' . e($href) . '"' . ($s['section'] === $section ? ' aria-current="page"' : '') . '>' . $label . '</a>';
-    return $html . '</nav>' . match ($s['section']) {'achievements' => achievements_view(), 'rank' => rank_history_view($s['now']), 'xp' => xp_records_view($s, $d)};
+    return $html . '</nav>' . match ($s['section']) {'achievements' => achievements_view($s['clans']), 'rank' => rank_history_view($s['now']), 'xp' => xp_records_view($s, $d)};
 }
 function xp_records_view(array $s, array $d): string {
     $html = '<div class="records-skill-filter">' . skill_select($s) . '</div><section class="panel"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div><div class="boards">';

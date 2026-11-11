@@ -30,7 +30,7 @@ $html = rank_history_view($now);
 check(str_contains($html, '92 days so far'), 'Ongoing tenure must be visible');
 check(!str_contains($html, 'End unknown') && !str_contains($html, 'Intervals inferred'), 'Removed notes must not reappear');
 check(substr_count($html, 'class="reign-cell"') === 8, 'The ongoing reign must be a regular table cell');
-$html = achievements_view();
+$html = achievements_view([]);
 check(substr_count($html, 'class="achievement-tile"') === 46, 'Selected layout must show every icon');
 check(substr_count($html, 'href="/player/') === 27, 'Documented holder names must be visible and linked');
 check(!str_contains($html, '<h2>Skills') && !str_contains($html, '<h2>Overall'), 'Achievements must be one flat collection');

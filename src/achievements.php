@@ -87,9 +87,9 @@ function historical_badges(string $name, int $now): string {
 function achievement_filter(): string {
     return '<svg class="record-filter" aria-hidden="true" width="0" height="0"><defs><filter id="record-silhouette" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB"><feMorphology in="SourceAlpha" operator="dilate" radius="0.7" result="edge"/><feFlood flood-color="#68513b"/><feComposite in2="edge" operator="in" result="outline"/><feFlood flood-color="#030202"/><feComposite in2="SourceAlpha" operator="in" result="fill"/><feMerge><feMergeNode in="outline"/><feMergeNode in="fill"/></feMerge></filter></defs></svg>';
 }
-function achievements_view(): string {
+function achievements_view(array $clans): string {
     $html = '<section class="panel achievement-collection"><div class="achievement-grid" aria-label="Achievements">';
-    foreach (record_achievements() as $r) $html .= '<div class="achievement-tile">' . achievement_icon($r) . (isset($r['name']) ? player_link($r['name'], []) : '<span class="record-unclaimed" aria-label="No documented holder">—</span>') . '</div>';
+    foreach (record_achievements() as $r) $html .= '<div class="achievement-tile">' . achievement_icon($r) . (isset($r['name']) ? player_link($r['name'], $clans) : '<span class="record-unclaimed" aria-label="No documented holder">—</span>') . '</div>';
     return $html . '</div></section>';
 }
 function rank_history_view(int $now): string {

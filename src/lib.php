@@ -86,13 +86,17 @@ function import_once(PDO $db, string $name, array $stats, int $at, bool $logout)
 }
 
 function rebuild_records(PDO $db): void {
-    transaction($db, 'rebuilding records', function () use ($db) {
-        $db->exec("DELETE FROM records WHERE period IN ('6h', '24h')");
+    $start = microtime(true);
+    $players = fetch_rows($db, 'SELECT id FROM players p WHERE EXISTS (SELECT 1 FROM xp x WHERE x.player_id = p.id) ORDER BY id');
+    foreach ($players as ['id' => $id]) transaction($db, "rebuilding records for $id", function () use ($db, $id) {
+        // Match the import lock and release it per player, so a rebuild cannot stall every logout.
+        fetch_rows($db, 'SELECT id FROM players WHERE id = ? FOR UPDATE', [$id]);
+        $db->prepare("DELETE FROM records WHERE player_id = ? AND period IN ('6h', '24h')")->execute([$id]);
         foreach (['6h' => ['DESC', ''], '24h' => ['ASC', ' AND b.at >= x.at - ' . RECORDS['24h']]] as $period => [$order, $cutoff]) {
-            $db->prepare("INSERT INTO records SELECT ?, x.type, x.player_id, x.value - s.value, s.at, x.at FROM xp x JOIN players p ON p.id = x.player_id JOIN xp s ON s.player_id = x.player_id AND s.type = x.type AND s.at = (SELECT b.at FROM xp b WHERE b.player_id = x.player_id AND b.type = x.type AND b.at > p.first_seen AND b.at < x.at$cutoff ORDER BY b.at $order LIMIT 1) WHERE x.value > s.value ORDER BY x.at" . RECORD_UPDATE)->execute([$period]);
+            $db->prepare("INSERT INTO records SELECT ?, x.type, x.player_id, x.value - s.value, s.at, x.at FROM xp x JOIN players p ON p.id = x.player_id JOIN xp s ON s.player_id = x.player_id AND s.type = x.type AND s.at = (SELECT b.at FROM xp b WHERE b.player_id = x.player_id AND b.type = x.type AND b.at > p.first_seen AND b.at < x.at$cutoff ORDER BY b.at $order LIMIT 1) WHERE x.player_id = ? AND x.value > s.value ORDER BY x.at" . RECORD_UPDATE)->execute([$period, $id]);
         }
     });
-    error_log('Labs: rebuilt single-update 6h and bounded-window 24h records');
+    error_log('Labs: rebuilt single-update 6h and bounded-window 24h records for ' . count($players) . ' players in ' . round(microtime(true) - $start, 2) . 's');
 }
 
 // Gains change as time passes, so cron refreshes everyone; a new logout refreshes just that player.

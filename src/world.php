@@ -3,6 +3,14 @@ const ONLINE_VIEWS = ['all' => 'Average', 'split' => 'By day type'];
 const DAY_TYPES = ['weekday' => 'Weekday', 'saturday' => 'Saturday', 'sunday' => 'Sunday', 'holiday' => 'Holiday'];
 const DAY_MS = 86400000;
 
+function online_options(array $params): array {
+    $day = parameter($params, 'day', 'all');
+    if (!isset(ONLINE_VIEWS[$day])) throw new InvalidArgumentException("Unknown view: $day");
+    $hide = parameter($params, 'hide');
+    if ($hide !== '' && array_diff(explode(',', $hide), array_keys(DAY_TYPES))) throw new InvalidArgumentException("Unknown hidden day type: $hide");
+    return compact('day', 'hide');
+}
+
 // Major US and European public holidays as 'm-d' => name.
 function holidays(int $year): array {
     // Anonymous Gregorian algorithm for Easter Sunday.

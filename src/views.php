@@ -23,7 +23,7 @@ function clan_icon(string $key): string {
 function clan_link(string $key): string {return '<a href="/clans/' . $key . '">' . e(CLANS[$key]['name']) . clan_icon($key) . '</a>';}
 function segments(array $s, string $key, array $options, string $label): string {
     $html = '<nav class="segments" aria-label="' . e($label) . '">';
-    foreach ($options as $value => $text) $html .= '<a href="' . url($s['canonical'], [$key => $value] + array_intersect_key($s, ['period' => 1, 'metric' => 1, 'scale' => 1, 'day' => 1])) . '"' . ($s[$key] === $value ? ' aria-current="true"' : '') . '>' . e($text) . '</a>';
+    foreach ($options as $value => $text) $html .= '<a href="' . url($s['canonical'], [$key => $value] + array_intersect_key($s, ['period' => 1, 'metric' => 1, 'scale' => 1, 'day' => 1, 'hide' => 1])) . '"' . ($s[$key] === $value ? ' aria-current="true"' : '') . '>' . e($text) . '</a>';
     return $html . '</nav>';
 }
 function player_link(string $name, array $clans): string {return '<a href="/player/' . rawurlencode($name) . '">' . player_name($name, $clans) . '</a>';}
@@ -368,15 +368,21 @@ function stats_view(array $s, array $d): string {
     $html .= '<section class="panel graph-panel"><h2>Who holds the XP</h2>' . plot([['points' => $curve]], 'Share of XP held by the top players', 4, [0 => 'Top 0.01%', 1 => 'Top 0.1%', 2 => 'Top 1%', 3 => 'Top 10%', 4 => 'All players'], fn($v) => fmt($v) . '%', 0) . '</section>';
     $types = $s['day'] === 'all' ? ['all' => 'Average'] : DAY_TYPES; $lines = []; $legend = '';
     $holidays = 'Major US and European holidays: ' . implode(', ', holidays((int) gmdate('Y', (int) ($s['now'] / 1000))));
+    $hidden = $s['hide'] === '' ? [] : explode(',', $s['hide']); $hasSamples = false;
     foreach ($types as $key => $label) {
         $points = [];
         foreach ($d['online'][$key] ?? [] as $hour => $h) $points[] = ['x' => $hour, 'y' => $h['value'], 'tip' => sprintf('%s %02d:00 UTC · %s online (%d %s)', $label, $hour, fmt($h['value']), $h['days'], $h['days'] === 1 ? 'day' : 'days')];
-        if ($points) $lines[] = ['points' => $points, 'key' => $key, 'color' => DAY_COLORS[$key] ?? null];
-        // Checkboxes hide lines through CSS alone, so the page still needs no script.
-        if ($key !== 'all') $legend .= '<label style="--chart:' . DAY_COLORS[$key] . '"' . ($key === 'holiday' ? ' title="' . e($holidays) . '"' : '') . '><input class="sr-only" type="checkbox" value="' . $key . '" checked' . ($points ? '' : ' disabled') . '><span>' . $label . ($points ? '' : ' (no days yet)') . '</span></label>';
+        $off = in_array($key, $hidden, true);
+        if ($points) $hasSamples = true;
+        if ($points && !$off) $lines[] = ['points' => $points, 'key' => $key, 'color' => DAY_COLORS[$key] ?? null];
+        if ($key !== 'all') {
+            $toggle = implode(',', $off ? array_diff($hidden, [$key]) : [...$hidden, $key]);
+            $tag = $points ? 'a href="' . url($s['canonical'], ['day' => 'split', 'hide' => $toggle]) . '" aria-label="' . ($off ? 'Show ' : 'Hide ') . $label . '"' : 'span';
+            $legend .= '<' . $tag . ' class="' . ($off || !$points ? 'off' : 'on') . '" style="--chart:' . DAY_COLORS[$key] . '"' . ($key === 'holiday' ? ' title="' . e($holidays) . '"' : '') . '><span>' . $label . ($points ? '' : ' (no days yet)') . '</span></' . ($points ? 'a' : 'span') . '>';
+        }
     }
     $now = ($s['now'] % DAY_MS) / 3600000;
-    $html .= '<section class="panel graph-panel day-lines"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', ONLINE_VIEWS, 'Online view') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($legend ? '<div class="legend">' . $legend . '</div>' : '') . ($lines ? plot($lines, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column(array_merge(...array_column($lines, 'points')), 'y')), [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))]) : empty_message('No samples yet.')) . '</section>';
+    $html .= '<section class="panel graph-panel day-lines"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', ONLINE_VIEWS, 'Online view') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($legend ? '<div class="legend">' . $legend . '</div>' : '') . ($lines ? plot($lines, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column(array_merge(...array_column($lines, 'points')), 'y')), [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))]) : empty_message($hasSamples ? 'Choose a day type to display.' : 'No samples yet.')) . '</section>';
     return $html;
 }
 function clan_view(array $s, array $d): string {
@@ -411,7 +417,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['canonical']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=35"><script src="/app.js?v=14" defer></script></head><body>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=36"><script src="/app.js?v=15" defer></script></head><body>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

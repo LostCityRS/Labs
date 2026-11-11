@@ -28,4 +28,12 @@ foreach (['ehp' => 'Levels gained', 'xp' => 'XP gained'] as $metric => $heading)
     $html = clan_hiscores_view(page_state('/clans', ['metric' => $metric], $now), $emptyClans);
     expect(str_contains($html, '>' . $heading . '</th>'), "Clan gains must declare their actual unit: $metric");
 }
-echo "Behavior: routing, error recovery, affiliation and data labels passed\n";
+$world = ['today' => 1, 'week' => 1, 'totals' => [100], 'daily' => [], 'skills' => [], 'previous' => null, 'new99s' => [7 => [], 30 => []], 'nineties' => [], 'maxed' => 0, 'online' => ['weekday' => [0 => ['value' => 100, 'days' => 1]], 'all' => [0 => ['value' => 100, 'days' => 1]]]];
+$html = stats_view(page_state('/stats', ['day' => 'split'], $now), $world);
+expect(str_contains($html, 'aria-label="Hide Weekday"') && str_contains($html, 'hide=weekday') && str_contains($html, 'class="line-weekday"'), 'Chart legend must expose URL links for visible day types');
+$html = stats_view(page_state('/stats', ['day' => 'split', 'hide' => 'weekday'], $now), $world);
+expect(str_contains($html, 'aria-label="Show Weekday"') && !str_contains($html, 'class="line-weekday"') && str_contains($html, 'Choose a day type'), 'Hidden series and all-hidden state must come from the URL');
+expect(str_contains($html, 'day=all&amp;period=24h&amp;hide=weekday'), 'Average/split navigation must preserve day-type choices');
+try {page_state('/stats', ['hide' => 'nonsense'], $now); throw new LogicException('Unknown day types must fail');}
+catch (InvalidArgumentException $e) {}
+echo "Behavior: routing, error recovery, affiliation, data labels and URL chart filters passed\n";

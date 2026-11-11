@@ -164,12 +164,9 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .ehp-slot .down{color:#d9534f}
 small.week{margin-left:6px;font-size:10px}
 .day-lines .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:4px 0 0;font-size:11px;color:var(--muted)}
-.day-lines .legend label{cursor:pointer}
+.day-lines .legend a{cursor:pointer;color:inherit;text-decoration:none}
 .day-lines .legend span::before{content:'';display:inline-block;width:14px;height:3px;margin-right:6px;vertical-align:middle;background:var(--chart)}
-.day-lines .legend input:not(:checked)+span{opacity:.4;text-decoration:line-through}
-.day-lines .legend input:disabled+span{cursor:default}
-.day-lines .legend input:focus-visible+span{outline:2px solid var(--accent);outline-offset:3px}
-.day-lines:has(input[value=weekday]:not(:checked)) .line-weekday,.day-lines:has(input[value=saturday]:not(:checked)) .line-saturday,.day-lines:has(input[value=sunday]:not(:checked)) .line-sunday,.day-lines:has(input[value=holiday]:not(:checked)) .line-holiday{display:none}
+.day-lines .legend .off{opacity:.4;text-decoration:line-through}
 .main-skill .icon{transform:scale(1.2);transform-origin:left center;margin-right:14px;vertical-align:-2px}
 .yt-grid{display:grid;gap:14px}
 .yt-grid article{display:grid;grid-template-columns:144px minmax(0,1fr);gap:12px;padding:10px;border:1px solid var(--border);background:var(--stripe)}

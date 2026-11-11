@@ -11,6 +11,10 @@ window.addEventListener('pageshow', () => setTimeout(() => {
   for (const form of document.querySelectorAll('form[method=get]')) form.reset();
 }, 0));
 
+document.addEventListener('change', ({target}) => {
+  if (target.matches('select') && target.form) target.form.requestSubmit();
+});
+
 for (const wrap of document.querySelectorAll('.chart-wrap')) {
   const svg = wrap.querySelector('.chart');
   const height = svg.viewBox.baseVal.height;

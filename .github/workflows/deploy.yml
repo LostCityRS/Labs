@@ -26,6 +26,7 @@ jobs:
           find src public -name '*.php' -print0 | xargs -0 -n 1 php8.3 -l
           bash -n .github/deploy.sh
           php8.3 tests/achievements.php
+          php8.3 tests/behavior.php
           node tests/navigation.mjs
 
   deploy:

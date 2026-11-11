@@ -36,7 +36,7 @@ function page_state(string $uri, array $params, int $now): array {
     if ($type === false || ($view === 'guides' && $type === 0)) throw new InvalidArgumentException("Unknown skill: $skill");
     if ($view === 'hiscores' && $type !== 0) throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $name = $view === 'player' ? safe_name($parts[1]) : '';
-    $section = $view === 'records' ? parameter($params, 'section', isset($parts[1]) ? 'xp' : 'achievements') : null;
+    $section = $view === 'records' ? parameter($params, 'section', isset($parts[1]) || array_key_exists('skill', $params) ? 'xp' : 'achievements') : null;
     if ($view === 'records' && !in_array($section, ['achievements', 'rank', 'xp'], true)) throw new InvalidArgumentException('Unknown records section');
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => $section === 'xp' ? '/records/' . $skill : '/records', 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
     return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? ['day' => isset(ONLINE_VIEWS[$day = parameter($params, 'day', 'all')]) ? $day : throw new InvalidArgumentException("Unknown view: $day")] : []);

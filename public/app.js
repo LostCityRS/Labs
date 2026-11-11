@@ -6,6 +6,11 @@ const redirectLegacyBookmark = () => {
 redirectLegacyBookmark();
 window.addEventListener('hashchange', redirectLegacyBookmark);
 
+// History restores edited controls after pageshow, even when the server rendered different results.
+window.addEventListener('pageshow', () => setTimeout(() => {
+  for (const form of document.querySelectorAll('form[method=get]')) form.reset();
+}, 0));
+
 for (const wrap of document.querySelectorAll('.chart-wrap')) {
   const svg = wrap.querySelector('.chart');
   const height = svg.viewBox.baseVal.height;

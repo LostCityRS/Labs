@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+const events={},queue=[],filter={value:'Fishing',reset(){this.value='Woodcutting';}};
+const document={querySelectorAll(selector){if(selector==='.chart-wrap')return [];assert.equal(selector,'form[method=get]');return [filter];}};
+runInNewContext(readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),{window:{addEventListener:(name,fn)=>events[name]=fn},document,location:{hash:''},setTimeout:fn=>queue.push(fn)});
+assert.ok(events.pageshow);
+events.pageshow();
+assert.equal(filter.value,'Fishing','Wait until native history state has been restored');
+queue.shift()();
+assert.equal(filter.value,'Woodcutting','Restore applied values from server HTML');
+console.log('Navigation: deferred history filter restoration passed');

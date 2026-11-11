@@ -36,4 +36,6 @@ expect(str_contains($html, 'aria-label="Show Weekday"') && !str_contains($html, 
 expect(str_contains($html, 'day=all&amp;period=24h&amp;hide=weekday'), 'Average/split navigation must preserve day-type choices');
 try {page_state('/stats', ['hide' => 'nonsense'], $now); throw new LogicException('Unknown day types must fail');}
 catch (InvalidArgumentException $e) {}
+$html = xp_records_view(page_state('/records/Overall', [], $now) + ['clans' => []], ['6h' => [], '24h' => []]);
+expect(str_contains($html, 'Overall · all skills combined'), 'Overall records must identify the combined skill scope');
 echo "Behavior: routing, error recovery, affiliation, data labels and URL chart filters passed\n";

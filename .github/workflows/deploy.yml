@@ -17,6 +17,19 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: labs_records_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -28,6 +41,14 @@ jobs:
           php8.3 tests/achievements.php
           php8.3 tests/behavior.php
           node tests/navigation.mjs
+      - name: Check record aggregation and time windows
+        env:
+          LABS_DB_DSN: mysql:host=127.0.0.1;dbname=labs_records_test
+          LABS_DB_USER: root
+          LABS_DB_PASS: test
+        run: |
+          mysql --host=127.0.0.1 --user=root --password=test labs_records_test < schema.sql
+          php8.3 tests/records.php
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

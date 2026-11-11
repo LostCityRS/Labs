@@ -233,7 +233,7 @@ function records_view(array $s, array $d): string {
     return $html . '</nav>' . match ($s['section']) {'achievements' => achievements_view($s['clans']), 'rank' => rank_history_view($s['now']), 'xp' => xp_records_view($s, $d)};
 }
 function xp_records_view(array $s, array $d): string {
-    $html = '<div class="records-skill-filter">' . skill_select($s) . '</div><section class="panel"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . '</h2></div><div class="boards">';
+    $html = '<div class="records-skill-filter">' . skill_select($s) . '</div><section class="panel"><div class="panel-heading"><h2>' . icon($s['skill']) . e($s['skill']) . ($s['type'] === 0 ? ' · all skills combined' : '') . '</h2></div><div class="boards">';
     foreach (['6h' => '6 hour', '24h' => '24 hour'] as $period => $label) {
         $best = $d[$period][0] ?? null;
         $when = fn($r) => gmdate('j M Y H:i:s', (int) ($r['start_at'] / 1000)) . ' – ' . gmdate('j M Y H:i:s', (int) ($r['end_at'] / 1000)) . ' UTC · ' . round(($r['end_at'] - $r['start_at']) / 3600000, 2) . ' hours between logout updates' . ($period === '6h' ? ' · Single logout update' : '');

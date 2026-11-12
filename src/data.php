@@ -30,16 +30,20 @@ function page_state(string $uri, array $params, int $now): array {
     $clan = $view === 'clans' ? $parts[1] ?? null : null;
     $period = parameter($params, 'period', $view === 'clans' ? '7d' : '24h');
     if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period: $period");
-    $defaultSkill = match ($view) {'player' => $parts[2] ?? 'Overall', 'records' => $parts[1] ?? 'Overall', 'guides' => 'Agility', default => 'Overall'};
+    $rankPage = $view === 'records' && ($parts[1] ?? null) === 'rank';
+    $defaultSkill = match ($view) {'player' => $parts[2] ?? 'Overall', 'records' => $rankPage ? 'Overall' : ($parts[1] ?? 'Overall'), 'guides' => 'Agility', default => 'Overall'};
     $skill = parameter($params, 'skill', $defaultSkill);
     $type = array_search($skill, SKILLS, true);
     if ($type === false || ($view === 'guides' && $type === 0)) throw new InvalidArgumentException("Unknown skill: $skill");
     if ($view === 'hiscores' && $type !== 0) throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $name = $view === 'player' ? safe_name($parts[1]) : '';
-    $section = $view === 'records' ? parameter($params, 'section', isset($parts[1]) || array_key_exists('skill', $params) ? 'xp' : 'achievements') : null;
+    $section = $view === 'records' ? parameter($params, 'section', $rankPage ? 'rank' : (isset($parts[1]) || array_key_exists('skill', $params) ? 'xp' : 'achievements')) : null;
     if ($view === 'records' && !in_array($section, ['achievements', 'rank', 'xp'], true)) throw new InvalidArgumentException('Unknown records section');
-    $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => $section === 'xp' ? '/records/' . $skill : '/records', 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
+    $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => match ($section) {'achievements' => '/records', 'rank' => '/records/rank', 'xp' => '/records/' . $skill}, 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
+    // Shared links must identify the selected view, not the unfiltered default.
+    $query = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'skiller', 'metric', 'scale', 'day', 'hide', 'page'])));
+    $share = $canonical . ($query === '' ? '' : '?' . $query);
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {

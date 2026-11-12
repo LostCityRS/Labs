@@ -7,12 +7,24 @@ foreach ([
     '/records?skill=Woodcutting' => ['xp', '/records/Woodcutting'],
     '/records?skill=Overall' => ['xp', '/records/Overall'],
     '/records?section=achievements&skill=Woodcutting' => ['achievements', '/records'],
-    '/records?section=rank&skill=Woodcutting' => ['rank', '/records'],
+    '/records?section=rank&skill=Woodcutting' => ['rank', '/records/rank'],
+    '/records?section=rank' => ['rank', '/records/rank'],
+    '/records/rank' => ['rank', '/records/rank'],
 ] as $uri => [$section, $canonical]) {
     parse_str(parse_url($uri, PHP_URL_QUERY) ?? '', $params);
     $s = page_state($uri, $params, $now);
     expect($s['section'] === $section && $s['canonical'] === $canonical, "Incorrect Records route: $uri");
 }
+foreach (['/records' => 'achievements', '/records/rank' => 'rank', '/records/Overall' => 'xp'] as $uri => $section) {
+    $s = page_state($uri, [], $now);
+    expect($s['section'] === $section && $s['share'] === $uri, "Records tab must have its own directly shareable URL: $uri");
+    $html = records_view($s + ['clans' => []], ['6h' => [], '24h' => []]);
+    expect(str_contains($html, 'href="/records/rank"') && !str_contains($html, 'href="/records?section=rank"'), 'Records tabs must link to distinct paths');
+}
+$s = page_state('/player/tm', ['skill' => 'Prayer', 'period' => '7d', 'unrelated' => 'ignored'], $now);
+expect($s['share'] === '/player/tm?skill=Prayer&period=7d', 'Sharing must retain selected filters without exporting unrelated parameters');
+$s = page_state('/youtube', ['page' => '2'], $now);
+expect($s['share'] === '/youtube?page=2', 'Sharing a video page must retain its page number');
 foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'records', '/hiscores' => 'hiscores'] as $uri => $view) {
     $s = page_state($uri, [], $now);
     $html = $view === 'hiscores' ? hiscore_controls($s) : skill_select($s);

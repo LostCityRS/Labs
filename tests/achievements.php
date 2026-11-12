@@ -41,7 +41,7 @@ $title = achievement_title($rows['skill-xp:9:200000000']);
 check(str_contains($title, "Tm\n24 May 2026") && str_contains($title, '23 May 2026'), 'Reported dates and source discrepancies must remain available');
 check(str_contains(achievement_title($rows['total-xp:0:1000000000']), 'No documented holder'), 'Undocumented must not be presented as proven unclaimed');
 check(str_contains(achievement_icon($rows['total-xp:0:1000000000']), 'record-silhouette'), 'Undocumented icons need silhouettes');
-foreach (['/records' => 'achievements', '/records?section=rank' => 'rank', '/records/Overall' => 'xp', '/records/Woodcutting' => 'xp'] as $uri => $expected) {
+foreach (['/records' => 'achievements', '/records/rank' => 'rank', '/records/Overall' => 'xp', '/records/Woodcutting' => 'xp'] as $uri => $expected) {
     parse_str(parse_url($uri, PHP_URL_QUERY) ?? '', $params);
     $state = page_state($uri, $params, $now);
     check($state['section'] === $expected, "Wrong records route $uri");

@@ -229,7 +229,7 @@ function hiscores_view(array $s, array $rows): string {
 }
 function records_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Records</h1></div><nav class="record-nav" aria-label="Record collection">';
-    foreach (['achievements' => ['Achievements', '/records'], 'rank' => ['Rank one', '/records?section=rank'], 'xp' => ['XP gains', '/records/Overall']] as $section => [$label, $href]) $html .= '<a href="' . e($href) . '"' . ($s['section'] === $section ? ' aria-current="page"' : '') . '>' . $label . '</a>';
+    foreach (['achievements' => ['Achievements', '/records'], 'rank' => ['Rank one', '/records/rank'], 'xp' => ['XP gains', '/records/Overall']] as $section => [$label, $href]) $html .= '<a href="' . e($href) . '"' . ($s['section'] === $section ? ' aria-current="page"' : '') . '>' . $label . '</a>';
     return $html . '</nav>' . match ($s['section']) {'achievements' => achievements_view($s['clans']), 'rank' => rank_history_view($s['now']), 'xp' => xp_records_view($s, $d)};
 }
 function xp_records_view(array $s, array $d): string {
@@ -415,7 +415,7 @@ function document(array $s, string $body, string $notice = ''): string {
     $meta = '';
     if (isset($s['meta'])) {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
-        $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['canonical']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
+        $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['share']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
     $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=38"><script src="/app.js?v=15" defer></script></head><body>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {

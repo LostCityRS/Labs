@@ -43,7 +43,7 @@ strong,b{font-weight:600}
 .segments a{font-size:11px;min-width:36px;border:1px solid transparent;padding:5px 8px;color:var(--muted);text-decoration:none;text-align:center}
 .segments a[aria-current=true]{color:var(--heading);background:var(--selected);border-color:var(--border)}
 .skill-filter{display:flex;align-items:center;gap:8px}
-.skill-filter select,.skill-filter button{height:34px;font-size:13px}
+.skill-filter select{height:34px;font-size:13px}
 .hiscores-heading,.hiscore-controls{flex-wrap:wrap}
 .hiscore-controls select{color:var(--muted)}
 .chart-wrap{position:relative;container-type:inline-size}

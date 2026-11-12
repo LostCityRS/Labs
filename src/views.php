@@ -239,7 +239,7 @@ function xp_records_view(array $s, array $d): string {
         $when = fn($r) => gmdate('j M Y H:i:s', (int) ($r['start_at'] / 1000)) . ' – ' . gmdate('j M Y H:i:s', (int) ($r['end_at'] / 1000)) . ' UTC · ' . round(($r['end_at'] - $r['start_at']) / 3600000, 2) . ' hours between logout updates' . ($period === '6h' ? ' · Single logout update' : '');
         $html .= '<div><div class="holder"><small>' . $label . ' record</small>' . ($best ? '<strong title="' . e($when($best)) . '">' . xp($best['gain']) . '</strong>' . player_link($best['name'], $s['clans']) : empty_message('Nobody yet.')) . '</div>' . ($d[$period] ? table(['#', 'Player', 'XP'], array_map(fn($r, $i) => [$i + 1, player_link($r['name'], $s['clans']), '<span class="gain" title="' . e($when($r)) . '">' . xp($r['gain']) . '</span>'], $d[$period], array_keys($d[$period])), $s['skill'] . ' ' . $label . ' records') : '') . '</div>';
     }
-    return $html . '</div><p class="muted">6h: largest single logout update between observations at most 6 hours apart. 24h: gains between logout updates at most 24 hours apart. Times are when Labs received updates.</p></section>';
+    return $html . '</div></section>';
 }
 function players_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>Players</h1></div>';

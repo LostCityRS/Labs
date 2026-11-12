@@ -38,6 +38,7 @@ try {page_state('/stats', ['hide' => 'nonsense'], $now); throw new LogicExceptio
 catch (InvalidArgumentException $e) {}
 $html = xp_records_view(page_state('/records/Overall', [], $now) + ['clans' => []], ['6h' => [], '24h' => []]);
 expect(str_contains($html, 'Overall · all skills combined'), 'Overall records must identify the combined skill scope');
+expect(!str_contains($html, '6h: largest single logout') && !str_contains($html, 'Times are when Labs received updates'), 'XP boards must not restore the removed explanatory footer');
 foreach (['max-crest.png' => 32, 'crown.png' => 16] as $art => $size) {
     $path = __DIR__ . '/../public/assets/records/' . $art;
     $image = getimagesize($path);

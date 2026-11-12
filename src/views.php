@@ -41,7 +41,7 @@ function search_view(string $value, string $error): string {
 }
 function skill_select(array $s): string {
     $action = $s['view'] === 'player' ? '/player/' . $s['name'] : $s['canonical'];
-    $html = '<form class="skill-filter" action="' . url($action) . '" method="get"><input type="hidden" name="period" value="' . e($s['period']) . '"><label class="select-label">Skill<select name="skill">';
+    $html = '<form class="skill-filter" action="' . url($action) . '" method="get">' . ($s['view'] === 'records' ? '' : '<input type="hidden" name="period" value="' . e($s['period']) . '">') . '<label class="select-label">Skill<select name="skill">';
     foreach (SKILLS as $name) $html .= '<option' . ($name === $s['skill'] ? ' selected' : '') . '>' . e($name) . '</option>';
     return $html . '</select></label></form>';
 }

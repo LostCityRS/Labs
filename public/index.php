@@ -41,9 +41,8 @@ if (preg_match('~^/og(/|$)~', $path)) {
     exit;
 }
 $s = page_state($_SERVER['REQUEST_URI'], $_GET, $now) + site_context($db);
-if (rawurldecode($path) !== $s['canonical']) {
-    $query = http_build_query($_GET);
-    header('Location: ' . $s['canonical'] . ($query === '' ? '' : '?' . $query), true, 301);
+if (rawurldecode($path) !== $s['canonical'] || $s['query'] !== http_build_query($_GET)) {
+    header('Location: ' . $s['canonical'] . ($s['query'] === '' ? '' : '?' . $s['query']), true, 301);
     exit;
 }
 $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'] === null ? 'clan-hiscores' : 'clan', default => $s['view']}, 'name' => $s['name'], 'type' => (string) $s['type'], 'period' => $s['period'], 'clan' => (string) $s['clan'], 'day' => $s['day'] ?? 'all'];

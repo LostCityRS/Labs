@@ -40,10 +40,12 @@ function page_state(string $uri, array $params, int $now): array {
     $section = $view === 'records' ? parameter($params, 'section', $rankPage ? 'rank' : (isset($parts[1]) || array_key_exists('skill', $params) ? 'xp' : 'achievements')) : null;
     if ($view === 'records' && !in_array($section, ['achievements', 'rank', 'xp'], true)) throw new InvalidArgumentException('Unknown records section');
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => match ($section) {'achievements' => '/records', 'rank' => '/records/rank', 'xp' => '/records/' . $skill}, 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
+    if ($view === 'records') unset($params['period'], $params['skill'], $params['section']);
+    $query = http_build_query($params);
     // Shared links must identify the selected view, not the unfiltered default.
-    $query = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'skiller', 'metric', 'scale', 'day', 'hide', 'page'])));
-    $share = $canonical . ($query === '' ? '' : '?' . $query);
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
+    $shareQuery = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'skiller', 'metric', 'scale', 'day', 'hide', 'page'])));
+    $share = $canonical . ($shareQuery === '' ? '' : '?' . $shareQuery);
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share', 'query') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {

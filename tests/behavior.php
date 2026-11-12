@@ -15,6 +15,17 @@ foreach ([
     $s = page_state($uri, $params, $now);
     expect($s['section'] === $section && $s['canonical'] === $canonical, "Incorrect Records route: $uri");
 }
+foreach ([
+    ['/records/Prayer', ['period' => '24h', 'skill' => 'Prayer'], '/records/Prayer'],
+    ['/records', ['skill' => 'Prayer'], '/records/Prayer'],
+    ['/records', ['section' => 'rank'], '/records/rank'],
+    ['/records/Prayer', ['skill' => 'Fishing', 'period' => '7d'], '/records/Fishing'],
+] as [$uri, $params, $canonical]) {
+    $s = page_state($uri, $params, $now);
+    expect($s['canonical'] === $canonical && $s['query'] === '' && $s['share'] === $canonical, "Records URLs must consume routing parameters and discard the unused period: $uri");
+}
+$s = page_state('/records/Prayer', ['skill' => 'Prayer', 'ref' => 'friend'], $now);
+expect($s['query'] === 'ref=friend', 'Records URL cleanup must preserve unrelated query parameters');
 foreach (['/records' => 'achievements', '/records/rank' => 'rank', '/records/Overall' => 'xp'] as $uri => $section) {
     $s = page_state($uri, [], $now);
     expect($s['section'] === $section && $s['share'] === $uri, "Records tab must have its own directly shareable URL: $uri");
@@ -29,6 +40,7 @@ foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'record
     $s = page_state($uri, [], $now);
     $html = $view === 'hiscores' ? hiscore_controls($s) : skill_select($s);
     expect(!str_contains($html, '<button') && str_contains($html, 'method="get"'), "Auto-navigating $view filters must not have an Apply button");
+    if ($view !== 'hiscores') expect(str_contains($html, 'name="period"') === ($view !== 'records'), "Only pages with a selectable period should submit it: $view");
 }
 $html = search_view('<bad>', 'Invalid username: <bad>');
 expect(str_contains($html, 'value="&lt;bad&gt;"') && str_contains($html, 'Invalid username: &lt;bad&gt;'), 'Invalid searches must retain escaped input and an inline error');

@@ -124,7 +124,9 @@ footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;bo
 .notice{padding:10px 20px;background:#1f1813;border-bottom:1px solid var(--border);font:11px/1.7 Arial,sans-serif;color:var(--gain)}
 .notice a{display:inline-block;margin-left:16px}
 .panel-heading h2{display:flex;align-items:center}
-.boards{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px}
+.boards>div{min-width:0}
+.boards .word-column{white-space:normal;overflow-wrap:anywhere}
 .holder{text-align:center;padding:10px 0}
 .holder small{display:block;letter-spacing:.1em;text-transform:uppercase}
 .holder strong{display:block;font:32px Georgia,serif;color:var(--gain);margin:6px 0}

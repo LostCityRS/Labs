@@ -2,6 +2,10 @@
 require __DIR__ . '/../src/views.php';
 function expect(bool $condition, string $message): void {if (!$condition) throw new RuntimeException($message);}
 $now = strtotime('2026-11-11 16:00:00 UTC') * 1000;
+expect(YOUTUBE_CHANNELS['UCDnlUv-BXcMrwXLcTwNqU-Q'] === 'Michael_Unce', 'Michael Unce must be registered with his verified channel ID');
+expect(youtube_listed('Michael_Unce', 'These 5 Skills Took Hundreds Of Hours For 99', 'Play Lost City here: https://2004.lostcity.rs/title'), 'Michael Unce uploads may identify Lost City only in the description');
+expect(youtube_listed('Michael_Unce', 'My Best Week On 2004Scape', ''), 'Michael Unce 2004scape titles must be listed case-insensitively');
+expect(!youtube_listed('Michael_Unce', 'Loot From 5500 Enhanced Crystal Key Chests', 'Old School RuneScape'), 'Unrelated Michael Unce OSRS uploads must not be listed');
 foreach ([
     '/records' => ['achievements', '/records'],
     '/records?skill=Woodcutting' => ['xp', '/records/Woodcutting'],

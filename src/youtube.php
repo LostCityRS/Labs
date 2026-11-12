@@ -1,6 +1,6 @@
 <?php
 // Feeds are keyed by channel ID; handles are only there so a reader knows whose channel each is.
-const YOUTUBE_CHANNELS = ['UCO5AUI4v0z8dknNlEZeDF7Q' => 'PkLikeElve', 'UC_9TKjx6PmiwOXo_hK1cmmQ' => 'MatJk2004', 'UCj8dJ3Q3JB753WXV97KKEaA' => 'vividman99', 'UCG8VPLs8XqrD9H9dbz2vuqw' => 'A-Pures-Way', 'UCSyceej8t_IAs9UR3SYW-2w' => 'nosaching7270', 'UCmVJ6Ff47YUkazAViOb-37A' => 'radicalpkzz', 'UCeW-sjKbyebOOoQ8lv63wTw' => 'AutumnElegy', 'UCAk3hMAJJ7oAP2ciRM5tAvQ' => 'WildMudkip', 'UChpl80y8J-csD1R0xOWxSdw' => 'AbyssTTV'];
+const YOUTUBE_CHANNELS = ['UCO5AUI4v0z8dknNlEZeDF7Q' => 'PkLikeElve', 'UC_9TKjx6PmiwOXo_hK1cmmQ' => 'MatJk2004', 'UCj8dJ3Q3JB753WXV97KKEaA' => 'vividman99', 'UCG8VPLs8XqrD9H9dbz2vuqw' => 'A-Pures-Way', 'UCSyceej8t_IAs9UR3SYW-2w' => 'nosaching7270', 'UCmVJ6Ff47YUkazAViOb-37A' => 'radicalpkzz', 'UCeW-sjKbyebOOoQ8lv63wTw' => 'AutumnElegy', 'UCAk3hMAJJ7oAP2ciRM5tAvQ' => 'WildMudkip', 'UChpl80y8J-csD1R0xOWxSdw' => 'AbyssTTV', 'UCDnlUv-BXcMrwXLcTwNqU-Q' => 'Michael_Unce'];
 const YOUTUBE_PAGE = 10;
 
 // Creators label Lost City uploads differently, so each channel gets the rule that catches its own; PkLikeElve posts nothing else.
@@ -8,7 +8,7 @@ function youtube_listed(string $handle, string $title, string $description): boo
     return match ($handle) {
         'PkLikeElve' => true,
         'WildMudkip' => str_contains($title, '2004'),
-        'AbyssTTV' => (bool) preg_match('~2004scape|lost city~i', "$title\n$description"),
+        'AbyssTTV', 'Michael_Unce' => (bool) preg_match('~2004scape|lost city~i', "$title\n$description"),
         default => stripos($title, '2004scape') !== false,
     };
 }

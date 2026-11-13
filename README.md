@@ -13,6 +13,10 @@ mysql -e 'CREATE DATABASE labs' && mysql labs < schema.sql
 LABS_DB_DSN='mysql:host=localhost;dbname=labs' LABS_DB_USER=root LABS_API_KEY=dev php -S 127.0.0.1:8080 -t public
 ```
 
+## Similar players
+
+For an existing installation, create the `similarity` table using its definition in the schema, then run `php src/refresh.php --similar` with the normal database environment before serving the updated application. Rebuild after changing the similarity model or EHP rates; incompatible projections fail with the rebuild command rather than serving an old ranking. Callbacks update each account, and the regular refresh job advances recent training windows hourly.
+
 ## Historical records
 
 The historical-records data file contains manually curated firsts and rank-one handovers from https://lostcity.rs/t/hiscore-history-2004/1811/2 . Its `source` field is a forum post number; dates are UTC calendar dates, and `note` preserves unresolved source discrepancies.

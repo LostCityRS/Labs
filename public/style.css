@@ -66,8 +66,12 @@ tbody tr:nth-child(2n){background:var(--stripe)}
 tbody tr:last-child>*{border-bottom:0}
 .current-skill{color:var(--heading);font-weight:600}
 .detail-grid>*,.home-grid>*{min-width:0}
+.detail-grid>aside{display:flex;flex-direction:column}
+.detail-grid .similar-players{margin-top:auto}
 .achievement{display:grid;grid-template-columns:1fr auto;margin-top:15px;padding-bottom:11px;border-bottom:1px solid var(--border);font-size:12px}
 .achievement:last-child{border:0;padding-bottom:0}
+.similar-player{margin-top:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.similar-player:last-child{border:0;padding-bottom:0}
 .achievement b{color:var(--accent)}
 .achievement small{grid-column:1/-1;font-size:10px}
 .empty{padding:18px 0;color:var(--muted);font-size:12px}

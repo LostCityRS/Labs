@@ -40,6 +40,7 @@ jobs:
           bash -n .github/deploy.sh
           php8.3 tests/achievements.php
           php8.3 tests/behavior.php
+          php8.3 tests/similar.php
           node tests/navigation.mjs
       - name: Check record aggregation and time windows
         env:
@@ -49,6 +50,7 @@ jobs:
         run: |
           mysql --host=127.0.0.1 --user=root --password=test labs_records_test < schema.sql
           php8.3 tests/records.php
+          php8.3 tests/similar-db.php
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

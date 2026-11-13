@@ -2,6 +2,7 @@
 // Cron, every 5 minutes, including 00:00 UTC.
 require __DIR__ . '/lib.php';
 if (($argv[1] ?? null) === '--ehp') {rebuild_ehp($db); exit;}
+if (($argv[1] ?? null) === '--similar') {rebuild_similar($db, $now); exit;}
 if (($argv[1] ?? null) === '--records') {rebuild_records($db, isset($argv[2]) ? [$argv[2]] : array_keys(RECORDS)); exit;}
 // A count-site outage must not stop XP gains and weekly awards from refreshing.
 try {
@@ -16,8 +17,9 @@ try {
     transaction($db, 'refreshing gains', fn() => refresh_gains($db, $now));
     refresh_ehp_weeks($db, $now);
     refresh_world_xp($db, $now);
-    // Hourly is plenty for videos and keeps us polite to the forum and YouTube.
+    // Quiet accounts still need their rolling training window advanced.
     if (intdiv($now, 300000) % 12 === 0) {
+        rebuild_similar($db, $now, true);
         try {refresh_clan_videos($db);} finally {refresh_youtube_videos($db);}
     }
 }

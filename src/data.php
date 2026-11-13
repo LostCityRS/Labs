@@ -9,6 +9,7 @@ require_once __DIR__ . '/clans.php';
 require_once __DIR__ . '/world.php';
 require_once __DIR__ . '/cards.php';
 require_once __DIR__ . '/youtube.php';
+require_once __DIR__ . '/similar.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -93,6 +94,7 @@ function get_data(PDO $db, array $params, int $now) {
             'records' => $fetch('SELECT * FROM (SELECT r.period, r.type, r.gain, r.start_at, r.end_at, (SELECT COUNT(*) + 1 FROM records o WHERE o.period = r.period AND o.type = r.type AND o.gain > r.gain) AS place FROM records r WHERE r.player_id = ?) t WHERE place <= 5 ORDER BY place, type, period', [$id]),
             'ehp' => ehp_scores($db, (int) $id),
             'ehp_model' => ehp_model()['id'],
+            'similar' => similar_players($db, (int) $id, $now),
         ],
         'online' => [
             'online' => $fetch('SELECT day AS at, online AS value FROM daily_players WHERE online IS NOT NULL ORDER BY day'),

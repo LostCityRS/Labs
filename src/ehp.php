@@ -78,6 +78,7 @@ function cache_ehp(PDO $db, int $player): void {
     $remaining = ehp_to_max($xp10);
     if ($remaining === null) $db->prepare('DELETE FROM ehp WHERE model = ? AND player_id = ? AND type = ?')->execute([ehp_model()['id'], $player, EHP_TO_MAX]);
     else $query->execute([ehp_model()['id'], $player, EHP_TO_MAX, $remaining]);
+    cache_similar($db, $player, $stats, (int) (microtime(true) * 1000));
 }
 function ehp_scores(PDO $db, int $player): array {
     $rows = fetch_rows($db, 'SELECT type, value FROM ehp WHERE model = ? AND player_id = ? AND type >= 0', [ehp_model()['id'], $player]);

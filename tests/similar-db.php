@@ -34,6 +34,7 @@ try {similar_players($db,$ids['sim_red'],$now); throw new LogicException('Missin
 catch (RuntimeException $e) {similar_expect(str_contains($e->getMessage(),'--similar'), 'Missing models must explain the repair command');}
 rebuild_similar($db,$now);
 similar_expect(similar_players($db,$ids['sim_red'],$now) === $rows, 'Rebuild must preserve the callback-produced ranking');
+similar_expect((int)fetch_rows($db,'SELECT COUNT(*) AS n FROM similarity WHERE player_id = ?',[$ids['sim_hp10']])[0]['n'] === 2, 'Rebuilding a new model must retain the previous model projection for a safe live cutover');
 $cached = fetch_rows($db,'SELECT profile FROM similarity WHERE player_id = ?',[$ids['sim_red']])[0]['profile'];
 $p = json_decode($cached,true,flags:JSON_THROW_ON_ERROR);
 similar_expect(isset($p['stable']['defence']) && $p['recent'], 'Database history must strengthen maintained builds and populate recent focus');

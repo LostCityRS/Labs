@@ -15,7 +15,9 @@ LABS_DB_DSN='mysql:host=localhost;dbname=labs' LABS_DB_USER=root LABS_API_KEY=de
 
 ## Similar players
 
-For an existing installation, create the `similarity` table using its definition in the schema, then run `php src/refresh.php --similar` with the normal database environment before serving the updated application. Rebuild after changing the similarity model or EHP rates; incompatible projections fail with the rebuild command rather than serving an old ranking. Callbacks update each account, and the regular refresh job advances recent training windows hourly.
+For an installation predating Similar players, create the `similarity` table using its definition in the schema. For an existing single-model table, first run `ALTER TABLE similarity DROP PRIMARY KEY, ADD PRIMARY KEY (model, player_id);` so the next model can be built without replacing the live model's projections.
+
+Run `php src/refresh.php --similar` with the normal database environment before serving an updated similarity model or EHP rates. Incompatible projections fail with the rebuild command rather than serving an old ranking. Callbacks update each account, and the regular refresh job advances recent training windows hourly.
 
 ## Historical records
 

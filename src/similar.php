@@ -1,5 +1,6 @@
 <?php
 const SIMILAR_MEMBERS = [10, 16, 17, 18];
+const SIMILAR_SKILLS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21];
 const SIMILAR_TRAITS = ['defence' => 40, 'attack' => 10, 'prayer' => 10, 'hp' => 45, 'skiller' => 55, 'defence_only' => 45, 'range_mage' => 20, 'strength_only' => 20, 'range_only' => 20, 'combat_focus' => 15, 'f2p' => 40];
 
 function similar_model(): string {
@@ -49,7 +50,8 @@ function similar_profile(array $rows, array $before, int $now): array {
     $traits = []; $restricted = [];
     $add = function (string $key, float $value, array $skills) use (&$traits, &$restricted) {$traits[$key] = $value; $restricted[$key] = $skills;};
     $offence = max($l[3] ?? 0, $l[5] ?? 0, $l[7] ?? 0);
-    $developed = max(array_intersect_key($l, array_flip([8,9,10,11,12,13,14,15,16,17,18,21])) ?: [0]) >= 60;
+    $skillLevels = array_intersect_key($l, array_flip(SIMILAR_SKILLS));
+    $developed = $skillLevels && max($skillLevels) >= 60;
     if ($offence >= 70) {
         if (isset($l[2]) && ($l[2] <= 41 || abs($l[2] - 45) <= 1 || abs($l[2] - 60) <= 1)) {
             $add('defence', $l[2] <= 2 ? 1 : $l[2], [2]);
@@ -92,7 +94,7 @@ function similar_profile(array $rows, array $before, int $now): array {
     }
     $post99 = [];
     foreach ($values as $t => $value) if ($value >= 1.5 * 130344310) $post99[$t] = $value / 130344310 - 1;
-    return ['traits' => $traits, 'stable' => $stable, 'shape' => $shape, 'post99' => $post99, 'recent' => $recent, 'active_at' => $activeAt, 'ehp' => $total, 'coherent' => $snapshot['coherent']];
+    return ['traits' => $traits, 'stable' => $stable, 'shape' => $shape, 'post99' => $post99, 'recent' => $recent, 'active_at' => $activeAt, 'ehp' => $total, 'coherent' => $snapshot['coherent'], 'skill_levels' => $skillLevels];
 }
 
 function similar_closeness(string $key, float $a, float $b): float {
@@ -175,6 +177,14 @@ function similar_score(array $a, array $b, array $weights, int $now): array {
             $points = 8 * min($share, $other) * exp(-abs($share - $other) / .2);
             $score += $points; $reasons['Recently training ' . SKILLS[$t]] = $points;
         }
+    }
+    $common = array_intersect_key($a['skill_levels'], $b['skill_levels']);
+    if (count($common) >= 8 && ($score >= 5 || (max($a['skill_levels']) >= 60 && max($b['skill_levels']) >= 60))) {
+        $skilling = 0;
+        // A fixed denominator prevents missing skills from making a partial profile look like a perfect match.
+        foreach ($common as $t => $level) $skilling += 30 / count(SIMILAR_SKILLS) * exp(-abs($level - $b['skill_levels'][$t]) / 15);
+        $score += $skilling;
+        if ($skilling >= 5) $reasons['Similar skilling levels'] = $skilling;
     }
     if ($score >= 10 && $a['ehp'] !== null && $b['ehp'] !== null && min($a['ehp'], $b['ehp']) > 0) $score += 4 * min($a['ehp'], $b['ehp']) / max($a['ehp'], $b['ehp']);
     // An exact restricted identity should outrank several incidental overlaps with an unrestricted account.

@@ -6,6 +6,11 @@ expect(YOUTUBE_CHANNELS['UCDnlUv-BXcMrwXLcTwNqU-Q'] === 'Michael_Unce', 'Michael
 expect(youtube_listed('Michael_Unce', 'These 5 Skills Took Hundreds Of Hours For 99', 'Play Lost City here: https://2004.lostcity.rs/title'), 'Michael Unce uploads may identify Lost City only in the description');
 expect(youtube_listed('Michael_Unce', 'My Best Week On 2004Scape', ''), 'Michael Unce 2004scape titles must be listed case-insensitively');
 expect(!youtube_listed('Michael_Unce', 'Loot From 5500 Enhanced Crystal Key Chests', 'Old School RuneScape'), 'Unrelated Michael Unce OSRS uploads must not be listed');
+expect(YOUTUBE_CHANNELS['UCV8OD9gwFmFcdbWkvHJEUXw'] === 'ZombieMusiq', 'ZombieMusiq must be registered with his verified channel ID');
+expect(youtube_listed('ZombieMusiq', 'Loot from 2 hours of Fletching arrow shafts', 'Play here: https://2004.lostcity.rs/'), 'ZombieMusiq uploads with 2004.lostcity.rs in the description must be listed');
+expect(youtube_listed('ZombieMusiq', 'Pyromaniac sets Ardougne ablaze', 'Play 2004.LostCity.rs today'), 'The description match must be case-insensitive');
+expect(!youtube_listed('ZombieMusiq', 'Completing 15 quests at once (2004Scape)', 'No link here'), 'ZombieMusiq titles alone must not list a video without 2004.lostcity.rs in the description');
+expect(!youtube_listed('ZombieMusiq', 'Cook\'s assistant quest guide', 'Play at https://lostcity.rs/t/some-thread'), 'A lostcity.rs link without the 2004 host must not list a ZombieMusiq video');
 foreach ([
     '/records' => ['achievements', '/records'],
     '/records?skill=Woodcutting' => ['xp', '/records/Woodcutting'],

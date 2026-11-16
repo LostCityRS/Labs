@@ -4,7 +4,7 @@ if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'labs_records_test' || $d
 function expect(bool $condition, string $message): void {if (!$condition) throw new RuntimeException($message);}
 function vote(PDO $db, array $post, int $now, ?string $user = '111'): ?string {
     $_SERVER['REQUEST_METHOD'] = 'POST'; $_POST = $post; $_COOKIE = ['labs_session' => 'testsession'];
-    file_put_contents(getenv('LABS_SESSION_PATH') . '/sess_testsession', $user === null ? '' : 'user|' . serialize(['id' => $user, 'expires' => time() + 600]) . 'csrf|' . serialize('token'));
+    file_put_contents(getenv('LABS_SESSION_PATH') . '/sess_testsession', $user === null ? '' : 'user|' . serialize(['id' => $user]) . 'csrf|' . serialize('token'));
     try {poll_routes($db, '/poll/vote', $now); return null;}
     catch (Throwable $e) {return get_class($e);}
     finally {if (session_status() === PHP_SESSION_ACTIVE) session_abort();}

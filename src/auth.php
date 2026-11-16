@@ -34,6 +34,7 @@ function auth_origin(string $key): string {
     if ($p['scheme'] !== 'https' && !($p['scheme'] === 'http' && in_array($p['host'], ['127.0.0.1', 'localhost'], true))) throw new RuntimeException("$key must use HTTPS");
     return $url;
 }
+const LABS_SESSION_LIFETIME = 400 * 86400; // browsers cap cookies at 400 days
 function auth_session(bool $create = false): void {
     if (session_status() === PHP_SESSION_ACTIVE || (!$create && !isset($_COOKIE['labs_session']))) return;
     ini_set('session.use_strict_mode', '1');
@@ -41,17 +42,15 @@ function auth_session(bool $create = false): void {
     $directory = getenv('LABS_SESSION_PATH');
     if (!$directory || !is_dir($directory)) throw new RuntimeException('LABS_SESSION_PATH is not configured');
     session_save_path($directory);
-    ini_set('session.gc_maxlifetime', '7200');
+    ini_set('session.gc_maxlifetime', (string) LABS_SESSION_LIFETIME);
     ini_set('session.gc_probability', '1');
     ini_set('session.gc_divisor', '100');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => str_starts_with(auth_origin('LABS_SITE_ORIGIN'), 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
+    session_set_cookie_params(['lifetime' => LABS_SESSION_LIFETIME, 'path' => '/', 'secure' => str_starts_with(auth_origin('LABS_SITE_ORIGIN'), 'https://'), 'httponly' => true, 'samesite' => 'Lax']);
     if (!session_start()) throw new RuntimeException('Could not start the Labs session');
 }
 function auth_user(): ?array {
     auth_session();
-    if (!isset($_SESSION['user'])) return null;
-    if ($_SESSION['user']['expires'] <= time()) {unset($_SESSION['user']); return null;}
-    return $_SESSION['user'];
+    return $_SESSION['user'] ?? null;
 }
 function csrf_token(): string {
     if (session_status() !== PHP_SESSION_ACTIVE) throw new RuntimeException('CSRF token requested without a session');
@@ -120,7 +119,7 @@ function auth_routes(PDO $db, string $path): bool {
         $names = linked_characters($identity);
         sync_characters($db, $identity['id'], $names);
         if (!session_regenerate_id(true)) throw new RuntimeException('Could not renew the Labs session');
-        $_SESSION['user'] = ['id' => $identity['id'], 'expires' => time() + 7200];
+        $_SESSION['user'] = ['id' => $identity['id']];
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         header('Location: /settings', true, 303); return true;
     }

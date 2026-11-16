@@ -54,7 +54,7 @@ foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'record
 $html = search_view('<bad>', 'Invalid username: <bad>');
 expect(str_contains($html, 'value="&lt;bad&gt;"') && str_contains($html, 'Invalid username: &lt;bad&gt;'), 'Invalid searches must retain escaped input and an inline error');
 expect(str_contains(account_nav(['view' => 'error']), 'href="/login"'), 'Public error pages must retain Login');
-$_SESSION['user'] = ['id' => 'test', 'expires' => time() + 60];
+$_SESSION['user'] = ['id' => 'test'];
 expect(str_contains(account_nav(['view' => 'error']), 'href="/settings"'), 'Signed-in error pages must retain Settings');
 unset($_SESSION['user']);
 $html = achievements_view(['tm' => ['crandor']]);

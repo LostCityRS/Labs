@@ -9,7 +9,7 @@ set_exception_handler(function (Throwable $e) {
 });
 require __DIR__ . '/../src/lib.php';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if (auth_routes($db, $path)) exit;
+if (auth_routes($db, $path) || poll_routes($db, $path, $now)) exit;
 if ($path === '/search' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $value = parameter($_POST, 'name');
     try {$name = safe_name($value);}
@@ -49,5 +49,7 @@ $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'
 if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
 if ($s['view'] === 'youtube') $query += array_intersect_key($_GET, ['page' => true]);
 $d = get_data($db, $query, $now);
+// Kept out of get_data so the public JSON API cannot reveal results before someone votes.
+if ($s['view'] === 'home') $d['poll'] = poll_results($db, $now, $s['user']['id'] ?? null);
 if ($d === null && ($s['view'] !== 'player' || !has_historical_record($s['name']))) http_response_code(404);
 echo document($s + ['meta' => card_meta($s, $d)], page_body($s, $d));

@@ -9,6 +9,7 @@ require_once __DIR__ . '/clans.php';
 require_once __DIR__ . '/world.php';
 require_once __DIR__ . '/cards.php';
 require_once __DIR__ . '/youtube.php';
+require_once __DIR__ . '/polls.php';
 require_once __DIR__ . '/similar.php';
 
 function parameter(array $params, string $key, string $default = ''): string {

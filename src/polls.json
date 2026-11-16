@@ -1,0 +1,15 @@
+{
+  "start": "2026-11-15",
+  "polls": [
+    {"slug": "imps-vs-skeleton", "question": "Who would win in a fight?", "options": [
+      {"label": "10 imps", "icon": "imp.png", "qty": 10},
+      {"label": "1 skeleton", "icon": "skeleton.png"}]},
+    {"slug": "halloween-mask", "question": "What's the best Halloween mask colour?", "options": [
+      {"label": "Red", "icon": "red_halloween_mask.png"},
+      {"label": "Blue", "icon": "blue_halloween_mask.png"},
+      {"label": "Green", "icon": "green_halloween_mask.png"}]},
+    {"slug": "10m-or-santa", "question": "Would you rather have 10M, or an untradable Santa hat?", "options": [
+      {"label": "10M coins", "icon": "coins_10000.png", "qty": 10000000},
+      {"label": "Untradable Santa hat", "icon": "santa_hat.png"}]}
+  ]
+}

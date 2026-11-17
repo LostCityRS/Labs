@@ -354,12 +354,11 @@ function visitors_view(array $s, array $v): string {
     $html .= '</div><p class="muted">Distinct browsers, not page views. UTC days; today is still in progress.</p>';
     $html .= chart([['points' => $v['daily']]], 'Labs visitors per UTC day', 'visitors', $s, true);
     $html .= '<p class="muted">Returning visitors: ' . ($v['returning'] === null ? '— (needs visits in the last 7 days and 14 days of history)' : '<b>' . fmt($v['returning']['percent'], 1) . '%</b> · ' . fmt($v['returning']['count']) . ' of ' . fmt($v['counts'][7]) . ' browsers in the last 7 days also visited in the preceding 7 days.') . '</p>';
-    return $html . '<p class="muted">One random browser ID; no IP addresses or account details stored in visitor analytics. Other devices, cleared storage, and blocked tracking affect counts. ' . ($v['started'] === null ? 'No visits recorded yet.' : 'Tracking since ' . gmdate('j M Y', intdiv($v['started'], 1000)) . '.') . '</p></section>';
+    return $html . '</section>';
 }
 const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];
 function stats_view(array $s, array $d): string {
-    $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals'])) . '</strong></div></div>';
-    $html .= visitors_view($s, $d['visitors']);
+    $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week'] / 1e6) . 'M</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals']) / 1e6) . 'M</strong></div></div>';
     $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . chart([['points' => $d['daily']]], 'World XP gained per UTC day', 'XP', $s, true) . '</section>';
     $total = array_sum($d['skills']); $skills = array_filter($d['skills'], fn($v) => $v > 0); arsort($skills); $slots = '';
     // Rank movement against the previous 7 days, once a full previous week exists.
@@ -398,7 +397,7 @@ function stats_view(array $s, array $d): string {
     }
     $now = ($s['now'] % DAY_MS) / 3600000;
     $html .= '<section class="panel graph-panel day-lines"><div class="panel-heading"><h2>When the world plays</h2>' . segments($s, 'day', ONLINE_VIEWS, 'Online view') . '</div><p class="muted">Average players online by hour (UTC).</p>' . ($legend ? '<div class="legend">' . $legend . '</div>' : '') . ($lines ? plot($lines, 'Average players online by UTC hour', 24, [0 => '00:00', 6 => '06:00', 12 => '12:00', 18 => '18:00', 24 => '24:00'], fn($v) => fmt($v), min(array_column(array_merge(...array_column($lines, 'points')), 'y')), [$now, 'Now ' . gmdate('H:i', (int) ($s['now'] / 1000))]) : empty_message($hasSamples ? 'Choose a day type to display.' : 'No samples yet.')) . '</section>';
-    return $html;
+    return $html . visitors_view($s, $d['visitors']);
 }
 function clan_view(array $s, array $d): string {
     $clan = CLANS[$s['clan']]; $metric = CLAN_METRICS[$s['metric']]; $members = $d['members'];

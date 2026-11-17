@@ -8,7 +8,7 @@ $day = intdiv($today, DAY_MS) * DAY_MS;
 $ids = array_map(fn($i) => sprintf('00000000-0000-4000-8000-%012d', $i), range(1, 6));
 $empty = visitor_stats($db, $today);
 expect($empty === ['started' => null, 'counts' => [1 => 0, 7 => 0, 30 => 0], 'returning' => null, 'daily' => []], 'Empty history must not fabricate visits');
-expect(str_contains(visitors_view(page_state('/stats', [], $today), $empty), 'No visits recorded yet.'), 'Empty stats must explain tracking has not started');
+expect(str_contains(visitors_view(page_state('/stats', [], $today), $empty), 'No Labs visitors per UTC day data yet.'), 'Empty stats must explain there is no visitor history');
 foreach (['', 'bad', $ids[0] . "\n", str_replace('4000', '5000', $ids[0])] as $id) {
     try {record_visit($db, $id, $today); throw new LogicException('Bad visitor ID accepted');}
     catch (InvalidArgumentException $e) {}
@@ -29,6 +29,7 @@ expect($v['returning']['count'] === 1 && abs($v['returning']['percent'] - 100 / 
 expect(count($v['daily']) === 30 && $v['daily'][0]['at'] === $day - 29 * DAY_MS, 'Chart must cover the last 30 UTC days');
 expect($v['daily'][1]['value'] === 0 && $v['daily'][29]['value'] === 2 && $v['daily'][28]['value'] === 1, 'Missing days must be zero; repeat loads must count once');
 $html = visitors_view(page_state('/stats', [], $today), $v);
+expect(!str_contains($html, 'One random browser ID') && !str_contains($html, 'Tracking since'), 'Visitor panel must omit the removed tracking paragraph');
 expect(str_contains($html, '33.3%') && str_contains($html, '1 of 3 browsers') && str_contains($html, 'today is still in progress'), 'Stats must explain return share and partial current day');
 expect(!str_contains(json_encode($v), $ids[2]), 'Aggregates must never reveal visitor identifiers');
 putenv('LABS_SITE_ORIGIN=http://localhost');

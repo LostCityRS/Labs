@@ -43,6 +43,7 @@ jobs:
           php8.3 tests/similar.php
           php8.3 tests/polls.php
           node tests/navigation.mjs
+          node tests/visitors.mjs
       - name: Check record aggregation and time windows
         env:
           LABS_DB_DSN: mysql:host=127.0.0.1;dbname=labs_records_test
@@ -53,6 +54,7 @@ jobs:
           php8.3 tests/records.php
           php8.3 tests/similar-db.php
           php8.3 tests/polls-db.php
+          php8.3 tests/visitors-db.php
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

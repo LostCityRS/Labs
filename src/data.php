@@ -11,6 +11,7 @@ require_once __DIR__ . '/cards.php';
 require_once __DIR__ . '/youtube.php';
 require_once __DIR__ . '/polls.php';
 require_once __DIR__ . '/similar.php';
+require_once __DIR__ . '/visitors.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -105,7 +106,7 @@ function get_data(PDO $db, array $params, int $now) {
         'hiscores' => hiscores_rows($db, $params, $now),
         'records' => array_map(fn($p) => $fetch('SELECT name, gain, start_at, end_at FROM records JOIN players ON id = player_id WHERE period = ? AND type = ? ORDER BY gain DESC LIMIT 5', [$p, $type]), ['6h' => '6h', '24h' => '24h']),
         'clans' => clan_map($db),
-        'stats' => world_stats($db, $now),
+        'stats' => world_stats($db, $now) + ['visitors' => visitor_stats($db, $now)],
         'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => $members = clan_members($db, $clan, $period, $now), 'levels' => clan_skill_xp($db, $members), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
         'clan-hiscores' => array_map(fn($key) => ['members' => $members = clan_members($db, $key, $period, $now), 'levels' => clan_skill_xp($db, $members)], array_combine(array_keys(CLANS), array_keys(CLANS))),
         'youtube' => youtube_page($db, filter_var(parameter($params, 'page', '1'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: throw new InvalidArgumentException('Invalid page')),

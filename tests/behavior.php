@@ -66,7 +66,13 @@ foreach (['ehp' => 'Levels gained', 'xp' => 'XP gained'] as $metric => $heading)
     $html = clan_hiscores_view(page_state('/clans', ['metric' => $metric], $now), $emptyClans);
     expect(str_contains($html, '>' . $heading . '</th>'), "Clan gains must declare their actual unit: $metric");
 }
-$world = ['today' => 1, 'week' => 1, 'totals' => [100], 'daily' => [], 'skills' => [], 'previous' => null, 'new99s' => [7 => [], 30 => []], 'nineties' => [], 'maxed' => 0, 'online' => ['weekday' => [0 => ['value' => 100, 'days' => 1]], 'all' => [0 => ['value' => 100, 'days' => 1]]]];
+$world = ['visitors' => ['started' => null, 'counts' => [1 => 0, 7 => 0, 30 => 0], 'returning' => null, 'daily' => []], 'today' => 1, 'week' => 1, 'totals' => [100], 'daily' => [], 'skills' => [], 'previous' => null, 'new99s' => [7 => [], 30 => []], 'nineties' => [], 'maxed' => 0, 'online' => ['weekday' => [0 => ['value' => 100, 'days' => 1]], 'all' => [0 => ['value' => 100, 'days' => 1]]]];
+http_response_code(200);
+expect(str_contains(document(['view' => 'stats'], ''), ' data-track-visits'), 'Successful public pages must enable visitor tracking');
+expect(!str_contains(document(['view' => 'error'], ''), ' data-track-visits'), 'Error documents must never enable tracking');
+http_response_code(404);
+expect(!str_contains(document(page_state('/player/missing', [], $now), ''), ' data-track-visits'), 'Missing players must not count as visits');
+http_response_code(200);
 $html = stats_view(page_state('/stats', ['day' => 'split'], $now), $world);
 expect(str_contains($html, 'aria-label="Hide Weekday"') && str_contains($html, 'hide=weekday') && str_contains($html, 'class="line-weekday"'), 'Chart legend must expose URL links for visible day types');
 $html = stats_view(page_state('/stats', ['day' => 'split', 'hide' => 'weekday'], $now), $world);

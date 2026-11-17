@@ -19,6 +19,10 @@ For an installation predating Similar players, create the `similarity` table usi
 
 Run `php src/refresh.php --similar` with the normal database environment before serving an updated similarity model or EHP rates. Incompatible projections fail with the rebuild command rather than serving an old ranking. Callbacks update each account, and the regular refresh job advances recent training windows hourly.
 
+## Labs visitors
+
+For an existing installation, create the `visits` table using its definition in the schema before deploying visitor tracking. `/stats` reports distinct browsers using a random local-storage ID, not accounts or IPs; only a UTC day and browser ID are retained. Returning visitors compares the last seven UTC days (including today) against the preceding seven and is unavailable until 14 days of history exist. Non-JavaScript clients and hidden pages are not counted; browser automation can still inflate counts. There is no backfill before tracking began.
+
 ## Community poll
 
 For an installation predating the poll, create the `poll_weeks` and `poll_votes` tables using their definitions in the schema.

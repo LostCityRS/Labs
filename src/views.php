@@ -105,14 +105,14 @@ function chart(array $lines, string $name, string $unit, array $s, bool $daily =
     $max = max(array_column($points, 'value'));
     // A single observation needs an axis range, not a second invented observation.
     if ($max == $min) {$min = max(0, $min - 1); $max++;}
-    // Whole-number EHP labels need whole-number steps, or small ranges round to one repeated label.
-    if ($unit === 'EHP') {$min = floor($min); $max = $min + 3 * max(1, ceil(($max - $min) / 3));}
+    // Discrete counts need whole-number steps, not fractions of a visitor or repeated rounded labels.
+    if (in_array($unit, ['EHP', 'visitors'], true)) {$min = floor($min); $max = $min + 3 * max(1, ceil(($max - $min) / 3));}
     $range = $max - $min;
     $x = fn($at) => 62 + ($at - $start) / max(1, $s['now'] - $start) * 650;
     $plot = $height - 78;
     $y = fn($value) => 37 + $plot - ($value - $min) * $plot / $range;
     [$scale, $suffix] = $max >= 1e6 ? [1e6, 'm'] : ($max >= 1e4 ? [1e3, 'k'] : [1, '']);
-    $decimals = $unit === 'EHP' ? 0 : (int) min(1, max(0, ceil(log10($scale * 3 / $range))));
+    $decimals = in_array($unit, ['EHP', 'visitors'], true) ? 0 : (int) min(1, max(0, ceil(log10($scale * 3 / $range))));
     $html = '<svg class="chart' . (count($points) > 60 ? ' dense' : '') . '" viewBox="0 0 770 ' . $height . '" role="img" aria-label="' . e($name) . '"><g class="grid">';
     $lastLabel = null;
     for ($i = 0; $i < 4; $i++) {
@@ -348,9 +348,18 @@ function plot(array $lines, string $name, float $xmax, array $xticks, callable $
     foreach (array_keys($xticks) as $i => $v) $html .= '<text class="axis' . ($i % 2 ? ' minor-tick' : '') . '" x="' . $x($v) . '" y="215" text-anchor="' . ($i === 0 ? 'start' : ($i === count($xticks) - 1 ? 'end' : 'middle')) . '">' . e($xticks[$v]) . '</text>';
     return chart_frame($html . '</svg>');
 }
+function visitors_view(array $s, array $v): string {
+    $html = '<section class="panel graph-panel" id="labs-visitors"><h2>Labs visitors</h2><div class="stats">';
+    foreach ([1 => 'Today', 7 => 'Last 7 days', 30 => 'Last 30 days'] as $days => $label) $html .= '<div><span>' . $label . '</span><strong>' . fmt($v['counts'][$days]) . '</strong></div>';
+    $html .= '</div><p class="muted">Distinct browsers, not page views. UTC days; today is still in progress.</p>';
+    $html .= chart([['points' => $v['daily']]], 'Labs visitors per UTC day', 'visitors', $s, true);
+    $html .= '<p class="muted">Returning visitors: ' . ($v['returning'] === null ? '— (needs visits in the last 7 days and 14 days of history)' : '<b>' . fmt($v['returning']['percent'], 1) . '%</b> · ' . fmt($v['returning']['count']) . ' of ' . fmt($v['counts'][7]) . ' browsers in the last 7 days also visited in the preceding 7 days.') . '</p>';
+    return $html . '<p class="muted">One random browser ID; no IP addresses or account details stored in visitor analytics. Other devices, cleared storage, and blocked tracking affect counts. ' . ($v['started'] === null ? 'No visits recorded yet.' : 'Tracking since ' . gmdate('j M Y', intdiv($v['started'], 1000)) . '.') . '</p></section>';
+}
 const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];
 function stats_view(array $s, array $d): string {
     $html = '<div class="page-heading"><h1>World stats</h1></div><div class="stats"><div><span>XP gained today</span><strong class="gain">+' . fmt($d['today']) . '</strong></div><div><span>Last 7 days</span><strong class="gain">+' . fmt($d['week']) . '</strong></div><div><span>Total XP</span><strong>' . fmt(array_sum($d['totals'])) . '</strong></div></div>';
+    $html .= visitors_view($s, $d['visitors']);
     $html .= '<section class="panel graph-panel"><h2>XP gained per day</h2>' . chart([['points' => $d['daily']]], 'World XP gained per UTC day', 'XP', $s, true) . '</section>';
     $total = array_sum($d['skills']); $skills = array_filter($d['skills'], fn($v) => $v > 0); arsort($skills); $slots = '';
     // Rank movement against the previous 7 days, once a full previous week exists.
@@ -423,7 +432,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['share']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=42"><script src="/app.js?v=15" defer></script></head><body>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=42"><script src="/app.js?v=16" defer></script></head><body' . ($s['view'] !== 'error' && http_response_code() < 400 ? ' data-track-visits' : '') . '>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

@@ -6,6 +6,22 @@ const redirectLegacyBookmark = () => {
 redirectLegacyBookmark();
 window.addEventListener('hashchange', redirectLegacyBookmark);
 
+// Background tabs and link previews should not count as visits.
+const trackVisit = async () => {
+  if (document.visibilityState !== 'visible' || !document.body.hasAttribute('data-track-visits')) return;
+  try {
+    let visitor = localStorage.getItem('labs_visitor');
+    if (visitor === null) {
+      visitor = crypto.randomUUID();
+      localStorage.setItem('labs_visitor', visitor);
+    }
+    const response = await fetch('/hit', {method: 'POST', credentials: 'omit', body: new URLSearchParams({visitor})});
+    if (response.status !== 204) throw new Error('Visitor ping failed: HTTP ' + response.status);
+  } catch (error) {console.error('Labs visitor tracking:', error);}
+};
+document.addEventListener('visibilitychange', trackVisit);
+window.addEventListener('pageshow', trackVisit);
+
 // History restores edited controls after pageshow, even when the server rendered different results.
 window.addEventListener('pageshow', () => setTimeout(() => {
   for (const form of document.querySelectorAll('form[method=get]')) form.reset();

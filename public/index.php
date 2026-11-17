@@ -9,7 +9,7 @@ set_exception_handler(function (Throwable $e) {
 });
 require __DIR__ . '/../src/lib.php';
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-if (auth_routes($db, $path) || poll_routes($db, $path, $now)) exit;
+if (visitor_routes($db, $path, $now) || auth_routes($db, $path) || poll_routes($db, $path, $now)) exit;
 if ($path === '/search' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $value = parameter($_POST, 'name');
     try {$name = safe_name($value);}

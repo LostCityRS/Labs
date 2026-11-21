@@ -11,6 +11,11 @@ expect(youtube_listed('ZombieMusiq', 'Loot from 2 hours of Fletching arrow shaft
 expect(youtube_listed('ZombieMusiq', 'Pyromaniac sets Ardougne ablaze', 'Play 2004.LostCity.rs today'), 'The description match must be case-insensitive');
 expect(!youtube_listed('ZombieMusiq', 'Completing 15 quests at once (2004Scape)', 'No link here'), 'ZombieMusiq titles alone must not list a video without 2004.lostcity.rs in the description');
 expect(!youtube_listed('ZombieMusiq', 'Cook\'s assistant quest guide', 'Play at https://lostcity.rs/t/some-thread'), 'A lostcity.rs link without the 2004 host must not list a ZombieMusiq video');
+expect(YOUTUBE_CHANNELS['UCUw68v6UQm_79BWbgbxUyDg'] === 'Ellard2G', 'Ellard must be registered with the verified channel ID');
+expect(youtube_listed('Ellard2G', '2004Scape = Lost City', ''), 'Ellard uploads may identify 2004scape in the title');
+expect(youtube_listed('Ellard2G', 'New XP video', 'Playing on 2004SCAPE'), 'Ellard uploads may identify 2004scape only in the description');
+expect(!youtube_listed('Ellard2G', 'Lost City gameplay', 'https://2004.lostcity.rs/'), 'Ellard uploads must mention 2004scape, not just Lost City');
+expect(!youtube_listed('Ellard2G', 'Battlefield 1', ''), 'Unrelated Ellard uploads must not be listed');
 foreach ([
     '/records' => ['achievements', '/records'],
     '/records?skill=Woodcutting' => ['xp', '/records/Woodcutting'],

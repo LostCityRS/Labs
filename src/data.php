@@ -73,7 +73,17 @@ function track_player(PDO $db, string $name, int $now): ?int {
     return import_stats($db, $name, $stats, $now);
 }
 
-function get_data(PDO $db, array $params, int $now) {
+function player_xp_start(string $period, int $now): int {
+    return $period === '24h' ? $now - DAY_MS : intdiv($now, DAY_MS) * DAY_MS - PERIODS[$period] + DAY_MS;
+}
+
+function player_xp_history(PDO $db, int $player, int $type, string $period, int $now): array {
+    $start = player_xp_start($period, $now);
+    $baseline = fetch_rows($db, 'SELECT type, at, value FROM xp WHERE player_id = ? AND type = ? AND at < ? ORDER BY at DESC LIMIT 1', [$player, $type, $start]);
+    return array_merge($baseline, fetch_rows($db, 'SELECT type, at, value FROM xp WHERE player_id = ? AND type = ? AND at >= ? AND at <= ? ORDER BY at', [$player, $type, $start, $now]));
+}
+
+function get_data(PDO $db, array $params, int $now, bool $playerChart = false) {
     $period = parameter($params, 'period', '24h');
     $type = filter_var(parameter($params, 'type', '0'), FILTER_VALIDATE_INT);
     if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period: $period");
@@ -90,7 +100,7 @@ function get_data(PDO $db, array $params, int $now) {
         'track' => track_player($db, safe_name(parameter($params, 'name')), $now),
         'player' => ($id = $fetch('SELECT id FROM players p WHERE name = ? AND EXISTS (SELECT 1 FROM current c WHERE c.player_id = p.id)', [safe_name(parameter($params, 'name'))])[0]['id'] ?? null) === null ? null : [
             'stats' => $fetch('SELECT c.type, c.level, c.value, c.at, COALESCE(g.gain, 0) AS gain, c.`rank` FROM current c LEFT JOIN gains g ON g.player_id = c.player_id AND g.type = c.type AND g.period = ? WHERE c.player_id = ?', [$period, $id]),
-            'history' => $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
+            'history' => $playerChart ? player_xp_history($db, $id, $type, $period, $now) : $fetch('SELECT type, at, value FROM xp WHERE player_id = ? AND at >= ? ORDER BY at', [$id, $now - PERIODS[$period]]),
             'levels' => $fetch('SELECT type, level, prev_level, at FROM levels WHERE player_id = ? ORDER BY at DESC LIMIT 5', [$id]),
             // Same top-five boards as the records page; rank 1 is the record holder.
             'records' => $fetch('SELECT * FROM (SELECT r.period, r.type, r.gain, r.start_at, r.end_at, (SELECT COUNT(*) + 1 FROM records o WHERE o.period = r.period AND o.type = r.type AND o.gain > r.gain) AS place FROM records r WHERE r.player_id = ?) t WHERE place <= 5 ORDER BY place, type, period', [$id]),

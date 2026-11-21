@@ -48,6 +48,13 @@ foreach (['/records' => 'achievements', '/records/rank' => 'rank', '/records/Ove
 }
 $s = page_state('/player/tm', ['skill' => 'Prayer', 'period' => '7d', 'unrelated' => 'ignored'], $now);
 expect($s['share'] === '/player/tm?skill=Prayer&period=7d', 'Sharing must retain selected filters without exporting unrelated parameters');
+$history = [['type'=>0, 'at'=>$now, 'value'=>1100], ['type'=>6, 'at'=>$now, 'value'=>200]];
+$chart = player_xp_chart($s, $history);
+preg_match('/data-xp="([^"]+)"/', $chart, $payload);
+$chartData = json_decode(html_entity_decode($payload[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
+expect($chartData === ['samples'=>[[$now,200]], 'start'=>strtotime('2026-11-05 UTC') * 1000, 'now'=>$now, 'days'=>7], 'Player XP chart must use only the selected skill and six previous UTC days plus today');
+expect(player_xp_start('24h', $now) === $now - DAY_MS, '24h must remain rolling');
+expect(str_contains(document($s, $chart), '/player-xp.js?v=1') && !str_contains(document(['view'=>'stats'], ''), '/player-xp.js'), 'Only player pages should load the interactive XP chart');
 $player = ['stats' => [['type' => 0, 'at' => $now, 'rank' => 1112, 'level' => 500, 'value' => 10000, 'gain' => 0]], 'history' => [], 'levels' => [], 'records' => [], 'similar' => []];
 $html = player_view($s + ['clans' => []], $player);
 expect(str_contains($html, 'href="https://2004.lostcity.rs/hiscores?category=0&amp;rank=1112"') && str_contains($html, '>1,112</a>'), 'The overall rank must link to the official rank search with an unformatted rank');

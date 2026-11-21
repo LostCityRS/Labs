@@ -53,6 +53,23 @@ strong,b{font-weight:600}
 @container(max-width:440px){.chart .minor-tick{display:none}}
 .xp-line{fill:none;stroke:var(--chart);stroke-width:2.5;stroke-linejoin:round}
 .chart-point{fill:var(--panel);stroke:var(--chart);stroke-width:2}
+.player-xp .panel-heading{margin-bottom:8px}
+.hover-controls{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-height:36px;margin-bottom:6px}
+.hover-controls .skill-filter select{height:30px;font-size:12px}
+.hover-readout{color:var(--muted);font-size:11px;line-height:1.35;font-variant-numeric:tabular-nums;text-align:right}
+.hover-readout b{font-weight:600;color:var(--heading);white-space:nowrap}
+.hover-svg{display:block;width:100%;height:auto;touch-action:pan-y pinch-zoom;user-select:none}
+.hover-window{white-space:nowrap}
+.hover-range{fill:var(--chart);fill-opacity:.17;stroke:var(--chart);stroke-width:1;stroke-opacity:.65}
+.hover-svg text{fill:var(--muted);font:10px Arial,sans-serif}
+.hover-grid{stroke:var(--grid);stroke-dasharray:2 4}
+.hover-zero{stroke:var(--border)}
+.hover-line{fill:none;stroke:var(--chart);stroke-width:2;stroke-linejoin:round}
+.hover-extension{stroke-dasharray:3 4;opacity:.55}
+.hover-guide{stroke:var(--muted);stroke-dasharray:3 3;opacity:.8}
+.hover-marker[data-pinned] .hover-guide{stroke:var(--gain);stroke-dasharray:none}
+.hover-dot{fill:var(--panel);stroke:var(--gain);stroke-width:2}
+.hover-hit{fill:transparent;cursor:crosshair}
 .detail-grid,.home-grid{display:grid;grid-template-columns:minmax(0,1fr) 215px;gap:20px}
 .home-grid{grid-template-columns:minmax(0,1fr) 240px}
 .skills-panel{padding:0}

@@ -27,6 +27,9 @@ foreach ($rows as $r) similar_expect(array_keys($r) === ['name','reasons'] && $r
 similar_expect($rows === similar_players($db,$ids['sim_red'],$now), 'Ranking and tie-breaking must be deterministic');
 $data = get_data($db,['q'=>'player','name'=>'sim_red'],$now);
 similar_expect($data['similar'] === $rows, 'The real player API must carry the same top five');
+$baselined = get_data($db, ['q'=>'player', 'name'=>'sim_red', 'type'=>'7', 'period'=>'7d'], $now, playerChart: true);
+similar_expect(array_column($baselined['history'], 'at') === [$now-$week-3600000, $now] && array_unique(array_column($baselined['history'], 'type')) === [7], 'The player chart needs the prior snapshot and only the requested skill');
+similar_expect(array_unique(array_column($data['history'], 'at')) === [$now], 'The public API must retain its existing rolling history and not include the chart baseline');
 $html = player_view(page_state('/player/sim_red',[],$now)+['clans'=>[]],$data);
 similar_expect(substr_count($html,'class="similar-player"') === 5 && str_contains($html,'<h2>Similar players</h2>'), 'The full player page must render five matches in its aside');
 $db->prepare('UPDATE similarity SET model = ? WHERE player_id = ?')->execute(['obsolete',$ids['sim_hp10']]);

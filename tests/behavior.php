@@ -43,6 +43,12 @@ foreach (['/records' => 'achievements', '/records/rank' => 'rank', '/records/Ove
 }
 $s = page_state('/player/tm', ['skill' => 'Prayer', 'period' => '7d', 'unrelated' => 'ignored'], $now);
 expect($s['share'] === '/player/tm?skill=Prayer&period=7d', 'Sharing must retain selected filters without exporting unrelated parameters');
+$player = ['stats' => [['type' => 0, 'at' => $now, 'rank' => 1112, 'level' => 500, 'value' => 10000, 'gain' => 0]], 'history' => [], 'levels' => [], 'records' => [], 'similar' => []];
+$html = player_view($s + ['clans' => []], $player);
+expect(str_contains($html, 'href="https://2004.lostcity.rs/hiscores?category=0&amp;rank=1112"') && str_contains($html, '>1,112</a>'), 'The overall rank must link to the official rank search with an unformatted rank');
+$player['stats'][0]['type'] = 1;
+$html = player_view($s + ['clans' => []], $player);
+expect(str_contains($html, '<span>Overall rank</span><strong>–</strong>'), 'A missing overall rank must not link to the official rank search');
 $s = page_state('/youtube', ['page' => '2'], $now);
 expect($s['share'] === '/youtube?page=2', 'Sharing a video page must retain its page number');
 foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'records', '/hiscores' => 'hiscores'] as $uri => $view) {

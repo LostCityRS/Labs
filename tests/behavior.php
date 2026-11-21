@@ -49,6 +49,12 @@ expect(str_contains($html, 'href="https://2004.lostcity.rs/hiscores?category=0&a
 $player['stats'][0]['type'] = 1;
 $html = player_view($s + ['clans' => []], $player);
 expect(str_contains($html, '<span>Overall rank</span><strong>–</strong>'), 'A missing overall rank must not link to the official rank search');
+expect(str_contains($html, '<h2>Recent levels</h2><p class="empty">None yet.</p>'), 'Players with no recorded levels must retain the empty state');
+$player['levels'] = [['type' => 7, 'at' => strtotime('2026-11-11 00:15:00 UTC') * 1000, 'prev_level' => 76, 'level' => 77]];
+$html = player_view($s + ['clans' => []], $player);
+expect(preg_match('~<h2>Recent levels</h2>(.*?)</section>~s', $html, $match) === 1, 'Player profiles must show recent levels');
+expect(str_contains($match[1], icon('Magic')) && str_contains($match[1], '<span class="sr-only">Magic level </span><b>77</b>'), 'Recent levels must show the skill icon and new level with an accessible skill name');
+expect(str_contains($match[1], '<time datetime="2026-11-11" title="11 Nov 2026 UTC">11 Nov</time>') && !str_contains($match[1], '76') && !str_contains($match[1], 'ago'), 'Recent levels must show the UTC date without the previous level or relative age');
 $s = page_state('/youtube', ['page' => '2'], $now);
 expect($s['share'] === '/youtube?page=2', 'Sharing a video page must retain its page number');
 foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'records', '/hiscores' => 'hiscores'] as $uri => $view) {

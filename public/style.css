@@ -68,12 +68,15 @@ tbody tr:last-child>*{border-bottom:0}
 .detail-grid>*,.home-grid>*{min-width:0}
 .detail-grid>aside{display:flex;flex-direction:column}
 .detail-grid .similar-players{margin-top:auto}
-.achievement{display:grid;grid-template-columns:1fr auto;margin-top:15px;padding-bottom:11px;border-bottom:1px solid var(--border);font-size:12px}
-.achievement:last-child{border:0;padding-bottom:0}
+.recent-levels{list-style:none;margin:9px 0 0;padding:0}
+.recent-levels li{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0}
+.recent-levels li+li{border-top:1px solid var(--border)}
+.level-gained{display:inline-flex;align-items:center;gap:5px}
+.level-gained .icon{margin:0;flex:none}
+.level-gained b{color:var(--accent);font-variant-numeric:tabular-nums}
+.recent-levels time{color:var(--muted);font-size:11px;white-space:nowrap}
 .similar-player{margin-top:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
 .similar-player:last-child{border:0;padding-bottom:0}
-.achievement b{color:var(--accent)}
-.achievement small{grid-column:1/-1;font-size:10px}
 .empty{padding:18px 0;color:var(--muted);font-size:12px}
 
 #search>div{display:flex;gap:6px}

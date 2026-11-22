@@ -51,9 +51,6 @@ try {page_state('/records?section=invalid', ['section' => 'invalid'], $now); thr
 catch (InvalidArgumentException $e) {}
 $html = player_view(page_state('/player/tm', [], $now) + ['clans' => []], null);
 check(str_contains($html, 'historical-badges') && str_contains($html, 'Not tracked yet'), 'Historical badges must survive missing current XP stats');
-$html = chart_point(100, 100, 'Point < 10');
-check(str_contains($html, '<title>Point &lt; 10</title>'), 'Charts must use escaped SVG native tooltips');
-check(!str_contains(chart_frame('<svg></svg>'), 'tooltip'), 'Chart custom tooltip scaffolding must be removed');
 $html = ehp_inventory([0 => 100, 9 => 100], 'tm');
 check(str_contains($html, 'title="Woodcutting') && !str_contains($html, 'ehp-tooltip'), 'EHP tiles must use native title attributes');
 echo "Achievements: catalogue, data, titles, profiles, routing and ongoing rank tenure passed\n";

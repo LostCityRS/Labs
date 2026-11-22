@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 const events={},queue=[],filter={value:'Fishing',reset(){this.value='Woodcutting';}};
-const document={addEventListener:(name,fn)=>events['document:'+name]=fn,querySelectorAll(selector){if(selector==='.chart-wrap')return [];assert.equal(selector,'form[method=get]');return [filter];}};
+const document={addEventListener:(name,fn)=>events['document:'+name]=fn,querySelectorAll(selector){assert.equal(selector,'form[method=get]');return [filter];}};
 runInNewContext(readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),{window:{addEventListener:(name,fn)=>events[name]=fn},document,location:{hash:''},setTimeout:fn=>queue.push(fn)});
 assert.ok(events.pageshow);
 events.pageshow();

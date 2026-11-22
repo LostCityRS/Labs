@@ -46,13 +46,6 @@ strong,b{font-weight:600}
 .skill-filter select{height:34px;font-size:13px}
 .hiscores-heading,.hiscore-controls{flex-wrap:wrap}
 .hiscore-controls select{color:var(--muted)}
-.chart-wrap{position:relative;container-type:inline-size}
-.chart{display:block;width:100%;height:auto;overflow:visible}
-.chart .grid line{stroke:var(--grid);stroke-dasharray:2 4}
-.chart text{fill:#c9bdb2;font:12px Verdana,sans-serif}
-@container(max-width:440px){.chart .minor-tick{display:none}}
-.xp-line{fill:none;stroke:var(--chart);stroke-width:2.5;stroke-linejoin:round}
-.chart-point{fill:var(--panel);stroke:var(--chart);stroke-width:2}
 .player-xp .panel-heading{margin-bottom:8px}
 .hover-controls{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px;min-height:36px;margin-bottom:6px}
 .hover-controls .skill-filter select{height:30px;font-size:12px}
@@ -68,7 +61,12 @@ strong,b{font-weight:600}
 .hover-extension{stroke-dasharray:3 4;opacity:.55}
 .hover-guide{stroke:var(--muted);stroke-dasharray:3 3;opacity:.8}
 .hover-marker[data-pinned] .hover-guide{stroke:var(--gain);stroke-dasharray:none}
-.hover-dot{fill:var(--panel);stroke:var(--gain);stroke-width:2}
+.hover-dot{fill:var(--panel);stroke:var(--dot,var(--gain));stroke-width:2}
+.chart-readout{min-height:1.35em;margin:0 0 4px}
+.chart-readout .hover-window{white-space:normal}
+.chart-item{white-space:nowrap}
+@media(max-width:620px){.chart-readout.multi{min-height:4.05em}}
+.chart-key::before{content:'';display:inline-block;width:9px;height:2px;margin-right:4px;vertical-align:middle;background:var(--chart)}
 .hover-hit{fill:transparent;cursor:crosshair}
 .detail-grid,.home-grid{display:grid;grid-template-columns:minmax(0,1fr) 215px;gap:20px}
 .home-grid{grid-template-columns:minmax(0,1fr) 240px}
@@ -99,10 +97,6 @@ tbody tr:last-child>*{border-bottom:0}
 #search>div{display:flex;gap:6px}
 #search-error{display:block;margin-top:8px;color:var(--accent);font-size:11px}
 #search-error:empty{display:none}
-.pt .hit{fill:transparent}
-.pt .chart-point{pointer-events:none}
-.dense .chart-point{opacity:0}
-.dense .pt:focus .chart-point{opacity:1}
 footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;border-top:1px solid var(--border);margin-top:25px;padding:15px 0;font-size:12px;color:var(--muted)}
 .account-nav{display:flex;align-items:center;gap:16px;margin-left:auto;font-size:12px}
 .clan-icon{width:1.1em;height:1.1em;margin-left:.25em;vertical-align:-.2em;object-fit:contain}

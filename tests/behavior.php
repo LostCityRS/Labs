@@ -50,11 +50,13 @@ $s = page_state('/player/tm', ['skill' => 'Prayer', 'period' => '7d', 'unrelated
 expect($s['share'] === '/player/tm?skill=Prayer&period=7d', 'Sharing must retain selected filters without exporting unrelated parameters');
 $history = [['type'=>0, 'at'=>$now, 'value'=>1100], ['type'=>6, 'at'=>$now, 'value'=>200]];
 $chart = player_xp_chart($s, $history);
-preg_match('/data-xp="([^"]+)"/', $chart, $payload);
+preg_match('/data-chart="([^"]+)"/', $chart, $payload);
 $chartData = json_decode(html_entity_decode($payload[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
 expect($chartData === ['samples'=>[[$now,200]], 'start'=>strtotime('2026-11-05 UTC') * 1000, 'now'=>$now, 'days'=>7], 'Player XP chart must use only the selected skill and six previous UTC days plus today');
 expect(player_xp_start('24h', $now) === $now - DAY_MS, '24h must remain rolling');
-expect(str_contains(document($s, $chart), '/player-xp.js?v=1') && !str_contains(document(['view'=>'stats'], ''), '/player-xp.js'), 'Only player pages should load the interactive XP chart');
+preg_match('/data-chart="([^"]+)"/', chart([['points' => [['at' => DAY_MS, 'value' => 5], ['at' => 3 * DAY_MS, 'value' => 7.5]]]], 'World XP', 'XP', $s, true, ['measure' => 'sum']), $payload);
+$chartData = json_decode(html_entity_decode($payload[1], ENT_QUOTES), true, flags: JSON_THROW_ON_ERROR);
+expect($chartData['start'] === DAY_MS && $chartData['end'] === 4 * DAY_MS && $chartData['measure'] === 'sum' && $chartData['lines'][0]['points'] === [[DAY_MS, 5], [3 * DAY_MS, 7.5]], 'Daily charts must cover whole UTC days and keep their window measure');
 $player = ['stats' => [['type' => 0, 'at' => $now, 'rank' => 1112, 'level' => 500, 'value' => 10000, 'gain' => 0]], 'history' => [], 'levels' => [], 'records' => [], 'similar' => []];
 $html = player_view($s + ['clans' => []], $player);
 expect(str_contains($html, 'href="https://2004.lostcity.rs/hiscores?category=0&amp;rank=1112"') && str_contains($html, '>1,112</a>'), 'The overall rank must link to the official rank search with an unformatted rank');
@@ -101,9 +103,9 @@ $html = stats_view(page_state('/stats', ['day' => 'split'], $now), $world);
 expect(str_ends_with($html, visitors_view(page_state('/stats', [], $now), $world['visitors'])), 'Labs visitors must be the last section on the stats page');
 expect(str_contains($html, '<strong class="gain">+1M</strong>') && str_contains($html, '<strong>2M</strong>'), 'Weekly and total world XP must use millions rounded down');
 expect(str_contains($html, '<strong class="gain">+1,234,567</strong>'), 'Today\'s XP must retain its exact value');
-expect(str_contains($html, 'aria-label="Hide Weekday"') && str_contains($html, 'hide=weekday') && str_contains($html, 'class="line-weekday"'), 'Chart legend must expose URL links for visible day types');
+expect(str_contains($html, 'aria-label="Hide Weekday"') && str_contains($html, 'hide=weekday') && str_contains($html, '&quot;label&quot;:&quot;Weekday&quot;'), 'Chart legend must expose URL links for visible day types');
 $html = stats_view(page_state('/stats', ['day' => 'split', 'hide' => 'weekday'], $now), $world);
-expect(str_contains($html, 'aria-label="Show Weekday"') && !str_contains($html, 'class="line-weekday"') && str_contains($html, 'Choose a day type'), 'Hidden series and all-hidden state must come from the URL');
+expect(str_contains($html, 'aria-label="Show Weekday"') && !str_contains($html, '&quot;label&quot;:&quot;Weekday&quot;') && str_contains($html, 'Choose a day type'), 'Hidden series and all-hidden state must come from the URL');
 expect(str_contains($html, 'day=all&amp;period=24h&amp;hide=weekday'), 'Average/split navigation must preserve day-type choices');
 try {page_state('/stats', ['hide' => 'nonsense'], $now); throw new LogicException('Unknown day types must fail');}
 catch (InvalidArgumentException $e) {}

@@ -72,6 +72,29 @@ expect(str_contains($match[1], icon('Magic')) && str_contains($match[1], '<span 
 expect(str_contains($match[1], '<time datetime="2026-11-11" title="11 Nov 2026 UTC">11 Nov</time>') && !str_contains($match[1], '76') && !str_contains($match[1], 'ago'), 'Recent levels must show the UTC date without the previous level or relative age');
 $s = page_state('/youtube', ['page' => '2'], $now);
 expect($s['share'] === '/youtube?page=2', 'Sharing a video page must retain its page number');
+$stats = fn(array $levels, array $xp10 = [], ?array $overall = null, array $stale = []) => array_merge(array_map(fn($type) => ['type' => $type, 'level' => $levels[$type], 'value' => $xp10[$type] ?? ($levels[$type] > 1 ? 1000000 : 0), 'at' => in_array($type, $stale, true) ? 1 : 2], array_keys($levels)), $overall === null ? [] : [['type' => 0, 'level' => $overall[0], 'value' => $overall[1], 'at' => 2]]);
+$all = array_fill_keys(array_keys(array_diff_key(SKILLS, [0 => true])), 1); $all[4] = 10;
+$pure = $all; $pure[1] = 60; $pure[3] = 80; $pure[5] = 70;
+expect(account_restrictions($stats($pure, [4 => 11540]))['pure'] === true && account_restrictions($stats($pure, [4 => 11540]))['f2p'] === true, 'A fully recorded 1 Defence account without members XP must be a confirmed F2P pure');
+expect(account_restrictions($stats(array_replace($pure, [2 => 2]), [4 => 11540]))['pure'] === false, 'Defence above 1 is not a pure');
+expect(account_restrictions($stats(array_diff_key($pure, [2 => true]), [4 => 11540]))['pure'] === null, 'An omitted Defence level leaves pure status unknown');
+$p2p = array_replace($pure, [17 => 30]);
+expect(account_restrictions($stats($p2p, [4 => 11540]))['f2p'] === false, 'Any members-skill XP rules out F2P');
+expect(account_restrictions($stats($p2p, [4 => 11540, 17 => 133000], null, [17]))['f2p'] === false, 'Members XP from an older reading still rules out F2P');
+$partial = array_diff_key($pure, [16 => true, 17 => true]);
+$partialXp = array_sum(array_map(fn($r) => $r['value'], $stats($partial, [4 => 11540])));
+expect(account_restrictions($stats($partial, [4 => 11540]))['f2p'] === null, 'Omitted members skills leave F2P unknown without Overall totals');
+expect(account_restrictions($stats($partial, [4 => 11540], [array_sum($partial) + 2, $partialXp]))['f2p'] === true, 'Overall XP with nothing unaccounted for proves omitted members skills are untrained');
+expect(account_restrictions($stats($partial, [4 => 11540], [array_sum($partial) + 3, $partialXp + 100]))['f2p'] === null, 'Unaccounted Overall XP may belong to an omitted members skill');
+$s = page_state('/hiscores', ['board' => 'ehp', 'account' => 'pure'], $now);
+$html = hiscore_controls($s);
+expect($s['account'] === 'pure' && str_contains($html, '<option value="pure" selected>Pure</option>') && str_contains($html, '<option value="f2p">F2P</option>') && str_contains($html, '<option value="all">All players</option>'), 'The account dropdown must offer every account type and keep the selected one');
+expect($s['share'] === '/hiscores?board=ehp&account=pure', 'Sharing a filtered hiscores page must keep its account type');
+expect(page_state('/hiscores', ['board' => 'max', 'skiller' => '1'], $now)['query'] === 'board=max&account=skiller' && page_state('/hiscores', ['skiller' => '0'], $now)['query'] === '', 'Old skiller links must redirect to the account filter');
+foreach ([['account' => 'ironman'], ['skiller' => '2']] as $bad) {
+    try {page_state('/hiscores', $bad, $now); expect(false, 'Invalid account filters must be rejected: ' . http_build_query($bad));} catch (InvalidArgumentException) {}
+}
+try {hiscore_options(['skiller' => '1']); expect(false, 'The API must reject the retired skiller filter');} catch (InvalidArgumentException $e) {expect(str_contains($e->getMessage(), 'use account'), 'The retired skiller filter error must name its replacement');}
 foreach (['/' => 'home', '/player/tm' => 'player', '/records/Overall' => 'records', '/hiscores' => 'hiscores'] as $uri => $view) {
     $s = page_state($uri, [], $now);
     $html = $view === 'hiscores' ? hiscore_controls($s) : skill_select($s);

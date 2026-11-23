@@ -1,18 +1,14 @@
 <?php
 const HISCORE_BOARDS = ['level' => 'Level', 'max' => 'Road to Max', 'ehp' => 'EHP', 'xp' => 'XP'];
-const HISCORE_FILTERS = ['skiller' => 'Skiller'];
+const HISCORE_FILTERS = ['skiller' => 'Skiller', 'pure' => 'Pure', 'f2p' => 'F2P'];
 
 function hiscore_options(array $params): array {
     $board = parameter($params, 'board', 'level');
     if (!isset(HISCORE_BOARDS[$board])) throw new InvalidArgumentException("Unknown hiscores view: $board");
-    foreach (['def1', 'f2p'] as $key) if (array_key_exists($key, $params)) throw new InvalidArgumentException("Unsupported hiscores filter: $key");
-    $options = ['board' => $board];
-    foreach (HISCORE_FILTERS as $key => $label) {
-        $value = parameter($params, $key, '0');
-        if ($value !== '0' && $value !== '1') throw new InvalidArgumentException("Invalid hiscores filter: $key");
-        $options[$key] = $value === '1';
-    }
-    return $options;
+    foreach (['def1', 'f2p', 'skiller'] as $key) if (array_key_exists($key, $params)) throw new InvalidArgumentException("Unsupported hiscores filter: $key; use account");
+    $account = parameter($params, 'account', 'all');
+    if ($account !== 'all' && !isset(HISCORE_FILTERS[$account])) throw new InvalidArgumentException("Unknown account type: $account");
+    return ['board' => $board, 'account' => $account];
 }
 function combat_level(array $levels): int {
     return (int) floor(($levels[2] + $levels[4] + floor($levels[6] / 2)) / 4 + .325 * max($levels[1] + $levels[3], $levels[5] + floor($levels[5] / 2), $levels[7] + floor($levels[7] / 2)));
@@ -29,7 +25,7 @@ function account_restrictions(array $stats): array {
         $upper[$type] = $r && $r['at'] == $latest ? $lower[$type] : 99;
         $xp += $r ? (int) $r['value'] : ($type === 4 ? 11540 : 0);
     }
-    $overall = $rows[0] ?? null;
+    $overall = $rows[0] ?? null; $spareXp = null;
     if ($overall && $overall['at'] == $latest) {
         $spareLevels = $overall['level'] - array_sum($lower);
         $spareXp = $overall['value'] - $xp;
@@ -37,7 +33,14 @@ function account_restrictions(array $stats): array {
         foreach ($upper as $type => &$level) $level = min($level, $lower[$type] + $spareLevels);
         unset($level);
     }
-    return ['skiller' => combat_level($lower) > 3 ? false : (combat_level($upper) === 3 ? true : null)];
+    // A members skill without a current reading has no XP only if Overall XP leaves none unaccounted for.
+    $f2p = true;
+    foreach (MEMBER_SKILLS as $type) {
+        $r = $rows[$type] ?? null;
+        if ($r && $r['value'] > 0) {$f2p = false; break;}
+        if ((!$r || $r['at'] != $latest) && $spareXp !== 0) $f2p = null;
+    }
+    return ['skiller' => combat_level($lower) > 3 ? false : (combat_level($upper) === 3 ? true : null), 'pure' => $lower[2] > 1 ? false : ($upper[2] === 1 ? true : null), 'f2p' => $f2p];
 }
 function cache_hiscores(PDO $db, int $player, array $stats): void {
     $flags = account_restrictions($stats);
@@ -46,15 +49,14 @@ function cache_hiscores(PDO $db, int $player, array $stats): void {
     if (isset($rows[0]) && $rows[0]['level'] == $max) {
         $maxed = fetch_rows($db, 'SELECT MIN(at) AS at FROM xp WHERE player_id = ? AND type = 0 AND level = ? AND at > (SELECT MIN(at) FROM xp WHERE player_id = ? AND type = 0 AND level < ?)', [$player, $max, $player, $max])[0]['at'];
     }
-    $db->prepare('UPDATE players SET skiller = ?, maxed_at = ? WHERE id = ?')->execute([
-        $flags['skiller'] === null ? null : (int) $flags['skiller'], $maxed, $player,
-    ]);
+    $bit = fn(?bool $flag) => $flag === null ? null : (int) $flag;
+    $db->prepare('UPDATE players SET skiller = ?, pure = ?, f2p = ?, maxed_at = ? WHERE id = ?')->execute([$bit($flags['skiller']), $bit($flags['pure']), $bit($flags['f2p']), $maxed, $player]);
 }
 function hiscores_rows(PDO $db, array $params, int $now): array {
     if (parameter($params, 'type', '0') !== '0') throw new InvalidArgumentException('Hiscores use overall views, not individual skills');
     $options = hiscore_options($params);
     $where = $options['board'] === 'ehp' ? '' : ' AND c.player_id IS NOT NULL';
-    foreach (HISCORE_FILTERS as $key => $label) if ($options[$key]) $where .= " AND p.$key = 1";
+    if ($options['account'] !== 'all') $where .= " AND p.{$options['account']} = 1";
     $max = (count(SKILLS) - 1) * 99;
     $order = match ($options['board']) {
         'level' => 'c.level DESC, c.value DESC',

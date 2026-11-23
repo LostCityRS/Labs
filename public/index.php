@@ -46,7 +46,7 @@ if (rawurldecode($path) !== $s['canonical'] || $s['query'] !== http_build_query(
     exit;
 }
 $query = ['q' => match ($s['view']) {'players' => 'online', 'clans' => $s['clan'] === null ? 'clan-hiscores' : 'clan', default => $s['view']}, 'name' => $s['name'], 'type' => (string) $s['type'], 'period' => $s['period'], 'clan' => (string) $s['clan'], 'day' => $s['day'] ?? 'all'];
-if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true] + HISCORE_FILTERS);
+if ($s['view'] === 'hiscores') $query += array_intersect_key($_GET, ['board' => true, 'account' => true]);
 if ($s['view'] === 'youtube') $query += array_intersect_key($_GET, ['page' => true]);
 $d = get_data($db, $query, $now, playerChart: $s['view'] === 'player');
 // Kept out of get_data so the public JSON API cannot reveal results before someone votes.

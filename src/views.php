@@ -47,8 +47,9 @@ function skill_select(array $s): string {
 function hiscore_controls(array $s): string {
     $html = '<form class="skill-filter hiscore-controls" action="/hiscores" method="get"><label class="select-label"><span class="sr-only">Hiscores view</span><select name="board">';
     foreach (HISCORE_BOARDS as $key => $label) $html .= '<option value="' . $key . '"' . ($s['board'] === $key ? ' selected' : '') . '>' . e($label) . '</option>';
-    $html .= '</select></label><select name="skiller" aria-label="Account type" title="Skiller includes only confirmed combat level 3 accounts."><option value="0"' . (!$s['skiller'] ? ' selected' : '') . '>All players</option><option value="1"' . ($s['skiller'] ? ' selected' : '') . '>Skiller</option></select>';
-    return $html . '</form>';
+    $html .= '</select></label><select name="account" aria-label="Account type" title="Only confirmed accounts are listed. Skiller: combat level 3. Pure: 1 Defence. F2P: no members-skill XP.">';
+    foreach (['all' => 'All players'] + HISCORE_FILTERS as $key => $label) $html .= '<option value="' . $key . '"' . ($s['account'] === $key ? ' selected' : '') . '>' . e($label) . '</option>';
+    return $html . '</select></form>';
 }
 function period_control(array $s): string {
     $html = '<nav class="segments" aria-label="Time period">';
@@ -203,7 +204,7 @@ function hiscores_view(array $s, array $rows): string {
     }
     $headers = $maxing ? ['Rank', 'Name', 'Level', 'EHP remaining', 'Maxing date'] : ['Rank', 'Name', 'Level', 'Exp', 'EHP'];
     $sorted = ['level' => 'Level', 'max' => 'EHP remaining', 'ehp' => 'EHP', 'xp' => 'Exp'][$s['board']];
-    $body = !$rows && $s['skiller'] ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
+    $body = !$rows && $s['account'] !== 'all' ? empty_message('No confirmed matches yet.') : table($headers, $cells, HISCORE_BOARDS[$s['board']] . ' hiscores', $sorted, $maxing ? 'ascending' : 'descending');
     return '<div class="page-heading hiscores-heading"><h1>Hiscores</h1>' . hiscore_controls($s) . '</div><section class="panel">' . $body . '</section>';
 }
 function records_view(array $s, array $d): string {

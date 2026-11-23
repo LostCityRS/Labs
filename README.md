@@ -37,6 +37,10 @@ The historical-records data file contains manually curated firsts and rank-one h
 
 To add a creator, add their channel ID to `YOUTUBE_CHANNELS` in `src/youtube.php`; `youtube_listed()` decides which uploads count. For an installation predating feed failure tracking, create the `youtube_feed_failures` table using its definition in the schema.
 
+## Hiscores account types
+
+For an installation predating Pure and F2P, run `ALTER TABLE players ADD pure TINYINT AFTER skiller, ADD f2p TINYINT AFTER pure`, then `php src/refresh.php --ehp` to classify existing players. Only confirmed accounts are listed: omitted stats count as unknown unless Overall totals prove them.
+
 ---
 
 Join Discord: https://discord.gg/m5Q6ZZrbPH

@@ -1,5 +1,4 @@
 <?php
-const SIMILAR_MEMBERS = [10, 16, 17, 18];
 const SIMILAR_SKILLS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 21];
 const SIMILAR_TRAITS = ['defence' => 40, 'attack' => 10, 'prayer' => 10, 'hp' => 45, 'skiller' => 55, 'defence_only' => 45, 'range_mage' => 20, 'strength_only' => 20, 'range_only' => 20, 'combat_focus' => 15, 'f2p' => 40];
 
@@ -67,7 +66,7 @@ function similar_profile(array $rows, array $before, int $now): array {
     if (($l[5] ?? 0) >= 70 && max($u[1], $u[3]) <= $l[5] - 25) $add('range_only', $l[5], [1,3]);
     if ($shape && array_sum(array_intersect_key($shape, array_flip([1,2,3,5,6,7]))) >= .8) $add('combat_focus', 1, []);
     if ($offence >= 60 || $developed) {
-        if (max(array_intersect_key($u, array_flip(SIMILAR_MEMBERS))) <= 10) $add('f2p', 1, SIMILAR_MEMBERS);
+        if (max(array_intersect_key($u, array_flip(MEMBER_SKILLS))) <= 10) $add('f2p', 1, MEMBER_SKILLS);
     }
     // Inferred XP is useful for a snapshot, but cannot establish observed training or maintenance.
     $old = array_column($before, null, 'type');

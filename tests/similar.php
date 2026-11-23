@@ -52,13 +52,13 @@ similar_expect(isset($lowMembers['traits']['f2p']), 'Extremely low members skill
 $member = $profile([9=>80,18=>30]);
 similar_expect(!isset($member['traits']['f2p']), 'Developed members skills must remove the F2P-like trait');
 $rows = similar_packet([9=>80], $now);
-$omit = array_values(array_filter($rows, fn($r) => !in_array($r['type'], SIMILAR_MEMBERS)));
+$omit = array_values(array_filter($rows, fn($r) => !in_array($r['type'], MEMBER_SKILLS)));
 $proven = similar_profile($omit, [], $now);
 similar_expect(isset($proven['traits']['f2p']) && $proven['ehp'] !== null, 'Coherent Overall totals may prove omitted members skills are untrained');
 $unknown = similar_profile(array_values(array_filter($omit, fn($r) => $r['type'] !== 0)), [], $now);
 similar_expect(!isset($unknown['traits']['f2p']) && $unknown['ehp'] === null && !$unknown['shape'], 'Unknown members skills must not be fabricated as zero');
 $stale = $rows;
-foreach ($stale as &$r) if (in_array($r['type'], SIMILAR_MEMBERS)) $r['at'] -= $week;
+foreach ($stale as &$r) if (in_array($r['type'], MEMBER_SKILLS)) $r['at'] -= $week;
 unset($r);
 $stale = array_values(array_filter($stale, fn($r) => $r['type'] !== 0));
 similar_expect(!isset(similar_profile($stale, [], $now)['traits']['f2p']), 'Stale low members stats do not prove a current F2P-like build');

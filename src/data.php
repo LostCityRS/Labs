@@ -1,5 +1,6 @@
 <?php
 const SKILLS = [0 => 'Overall', 1 => 'Attack', 2 => 'Defence', 3 => 'Strength', 4 => 'Hitpoints', 5 => 'Ranged', 6 => 'Prayer', 7 => 'Magic', 8 => 'Cooking', 9 => 'Woodcutting', 10 => 'Fletching', 11 => 'Fishing', 12 => 'Firemaking', 13 => 'Crafting', 14 => 'Smithing', 15 => 'Mining', 16 => 'Herblore', 17 => 'Agility', 18 => 'Thieving', 21 => 'Runecrafting'];
+const MEMBER_SKILLS = [10, 16, 17, 18];
 const PERIODS = ['24h' => 86400000, '7d' => 604800000, '30d' => 2592000000];
 const RECORDS = ['6h' => 21600000, '24h' => 86400000];
 require_once __DIR__ . '/ehp.php';
@@ -44,9 +45,14 @@ function page_state(string $uri, array $params, int $now): array {
     if ($view === 'records' && !in_array($section, ['achievements', 'rank', 'xp'], true)) throw new InvalidArgumentException('Unknown records section');
     $canonical = match ($view) {'home' => '/', 'player' => '/player/' . $name . (isset($parts[2]) ? '/' . $skill : ''), 'records' => match ($section) {'achievements' => '/records', 'rank' => '/records/rank', 'xp' => '/records/' . $skill}, 'guides' => '/guides/ehp', 'clans' => '/clans' . ($clan === null ? '' : '/' . $clan), default => '/' . $view};
     if ($view === 'records') unset($params['period'], $params['skill'], $params['section']);
+    // Links from before Pure and F2P used skiller=0/1; the changed query redirects them.
+    if ($view === 'hiscores' && array_key_exists('skiller', $params)) {
+        $skiller = parameter($params, 'skiller'); unset($params['skiller']);
+        if ($skiller === '1') $params['account'] = 'skiller'; elseif ($skiller !== '0') throw new InvalidArgumentException('Invalid hiscores filter: skiller');
+    }
     $query = http_build_query($params);
     // Shared links must identify the selected view, not the unfiltered default.
-    $shareQuery = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'skiller', 'metric', 'scale', 'day', 'hide', 'page'])));
+    $shareQuery = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'account', 'metric', 'scale', 'day', 'hide', 'page'])));
     $share = $canonical . ($shareQuery === '' ? '' : '?' . $shareQuery);
     return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share', 'query') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
 }

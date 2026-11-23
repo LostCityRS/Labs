@@ -149,3 +149,29 @@ function refresh_youtube_videos(PDO $db, int $now, callable $feed): void {
     foreach (fetch_rows($db, 'SELECT channel_id, since, error FROM youtube_feed_failures WHERE since <= ?', [$now - 86400000]) as $f) $errors[] = '@' . YOUTUBE_CHANNELS[$f['channel_id']] . ' feed failing since ' . gmdate('j M H:i', (int) ($f['since'] / 1000)) . " UTC: {$f['error']}";
     if ($errors) throw new RuntimeException('YouTube refresh failed: ' . implode('; ', $errors));
 }
+
+// oEmbed answers 401 for videos that only refuse embedding; 403 and 404 mean deleted or private.
+function youtube_gone(string $id): bool {
+    @file_get_contents('https://www.youtube.com/oembed?format=json&url=' . rawurlencode("https://www.youtube.com/watch?v=$id"), false, stream_context_create(['http' => ['timeout' => 15]]));
+    $status = $http_response_header[0] ?? throw new RuntimeException("YouTube oEmbed for $id failed: " . error_get_last()['message']);
+    if (preg_match('~^HTTP/\S+ (200|401) ~', $status)) return false;
+    return preg_match('~^HTTP/\S+ (403|404) ~', $status) ? true : throw new RuntimeException("YouTube oEmbed for $id answered $status");
+}
+
+// Feeds only show each channel's latest 15 uploads, so every video is also checked once a day, a twenty-fourth of them each hour.
+// A check that fails is retried the next day; only a run where every check fails points at a broken check rather than a bad moment.
+function sweep_youtube_videos(PDO $db, int $now, callable $gone): void {
+    $videos = fetch_rows($db, 'SELECT video_id, channel FROM youtube_videos WHERE CRC32(video_id) % 24 = ?', [intdiv($now, 3600000) % 24]);
+    $errors = [];
+    foreach ($videos as $v) {
+        try {
+            if (!$gone($v['video_id'])) continue;
+        } catch (RuntimeException $e) {
+            $errors[] = $e->getMessage();
+            continue;
+        }
+        $db->prepare('DELETE FROM youtube_videos WHERE video_id = ?')->execute([$v['video_id']]);
+        error_log("Labs: YouTube video {$v['video_id']} removed from {$v['channel']}; YouTube reports it deleted or private");
+    }
+    if ($videos && count($errors) === count($videos)) throw new RuntimeException('YouTube video checks all failed: ' . implode('; ', $errors));
+}

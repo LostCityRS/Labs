@@ -30,4 +30,22 @@ try {
 } catch (RuntimeException $e) {
     youtube_expect(str_contains($e->getMessage(), '@PkLikeElve: feed is not XML'), "Unexpected failure message: {$e->getMessage()}");
 }
-echo "YouTube: feed failures, recovery, listing and deleted uploads passed\n";
+$db->exec('DELETE FROM youtube_videos');
+foreach (['kept1111111', 'gone1111111', 'flaky000022', 'later111111'] as $v) $db->prepare("INSERT INTO youtube_videos (video_id, channel_id, channel, title, description, views, published_at) VALUES (?, ?, 'Pk Like Elve', '2004scape', '', 0, 0)")->execute([$v, $elve]);
+$hour = fn(string $v) => (int) fetch_rows($db, 'SELECT CRC32(?) % 24 AS h', [$v])[0]['h'];
+youtube_expect($hour('kept1111111') === $hour('gone1111111') && $hour('gone1111111') === $hour('flaky000022') && $hour('later111111') !== $hour('kept1111111'), 'Fixture videos must share one check hour except later111111');
+$checked = [];
+sweep_youtube_videos($db, $hour('kept1111111') * 3600000, function (string $v) use (&$checked) {
+    $checked[] = $v;
+    return $v === 'flaky000022' ? throw new RuntimeException("YouTube oEmbed for $v failed: timed out") : $v === 'gone1111111';
+});
+sort($checked);
+youtube_expect($checked === ['flaky000022', 'gone1111111', 'kept1111111'], 'A run must check only the videos assigned to its hour');
+youtube_expect(array_column(fetch_rows($db, 'SELECT video_id FROM youtube_videos ORDER BY video_id'), 'video_id') === ['flaky000022', 'kept1111111', 'later111111'], 'A deleted or private video must be removed, while available, failed and unchecked ones stay');
+try {
+    sweep_youtube_videos($db, $hour('flaky000022') * 3600000, fn(string $v) => throw new RuntimeException("YouTube oEmbed for $v failed: blocked"));
+    youtube_expect(false, 'A run where every check fails must be reported');
+} catch (RuntimeException $e) {
+    youtube_expect(str_contains($e->getMessage(), 'YouTube video checks all failed: YouTube oEmbed for flaky000022 failed: blocked'), "Unexpected failure message: {$e->getMessage()}");
+}
+echo "YouTube: feed failures, recovery, listing, deleted uploads and daily checks passed\n";

@@ -19,3 +19,4 @@ CREATE TABLE clan_videos (clan VARCHAR(16) NOT NULL, video_id VARCHAR(11) NOT NU
 CREATE TABLE poll_weeks (week_at BIGINT PRIMARY KEY, poll VARCHAR(32) NOT NULL);
 CREATE TABLE poll_votes (poll VARCHAR(32) NOT NULL, discord_id VARCHAR(20) NOT NULL, choice TINYINT NOT NULL, voted_at BIGINT NOT NULL, PRIMARY KEY (poll, discord_id));
 CREATE TABLE youtube_videos (video_id VARCHAR(11) PRIMARY KEY, channel_id VARCHAR(24) NOT NULL, channel VARCHAR(255) NOT NULL, title VARCHAR(255) NOT NULL, description TEXT NOT NULL, views INT NOT NULL, published_at BIGINT NOT NULL, KEY (published_at));
+CREATE TABLE youtube_feed_failures (channel_id VARCHAR(24) PRIMARY KEY, since BIGINT NOT NULL, error TEXT NOT NULL);

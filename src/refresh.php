@@ -20,6 +20,6 @@ try {
     // Quiet accounts still need their rolling training window advanced.
     if (intdiv($now, 300000) % 12 === 0) {
         rebuild_similar($db, $now, true);
-        try {refresh_clan_videos($db);} finally {refresh_youtube_videos($db);}
+        try {refresh_clan_videos($db);} finally {refresh_youtube_videos($db, $now, 'youtube_feed');}
     }
 }

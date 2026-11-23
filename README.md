@@ -33,6 +33,10 @@ For an installation predating the poll, create the `poll_weeks` and `poll_votes`
 
 The historical-records data file contains manually curated firsts and rank-one handovers from https://lostcity.rs/t/hiscore-history-2004/1811/2 . Its `source` field is a forum post number; dates are UTC calendar dates, and `note` preserves unresolved source discrepancies.
 
+## YouTube
+
+To add a creator, add their channel ID to `YOUTUBE_CHANNELS` in `src/youtube.php`; `youtube_listed()` decides which uploads count. For an installation predating feed failure tracking, create the `youtube_feed_failures` table using its definition in the schema.
+
 ---
 
 Join Discord: https://discord.gg/m5Q6ZZrbPH

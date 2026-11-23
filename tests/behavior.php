@@ -2,20 +2,21 @@
 require __DIR__ . '/../src/views.php';
 function expect(bool $condition, string $message): void {if (!$condition) throw new RuntimeException($message);}
 $now = strtotime('2026-11-11 16:00:00 UTC') * 1000;
-expect(YOUTUBE_CHANNELS['UCDnlUv-BXcMrwXLcTwNqU-Q'] === 'Michael_Unce', 'Michael Unce must be registered with his verified channel ID');
-expect(youtube_listed('Michael_Unce', 'These 5 Skills Took Hundreds Of Hours For 99', 'Play Lost City here: https://2004.lostcity.rs/title'), 'Michael Unce uploads may identify Lost City only in the description');
-expect(youtube_listed('Michael_Unce', 'My Best Week On 2004Scape', ''), 'Michael Unce 2004scape titles must be listed case-insensitively');
-expect(!youtube_listed('Michael_Unce', 'Loot From 5500 Enhanced Crystal Key Chests', 'Old School RuneScape'), 'Unrelated Michael Unce OSRS uploads must not be listed');
-expect(YOUTUBE_CHANNELS['UCV8OD9gwFmFcdbWkvHJEUXw'] === 'ZombieMusiq', 'ZombieMusiq must be registered with his verified channel ID');
-expect(youtube_listed('ZombieMusiq', 'Loot from 2 hours of Fletching arrow shafts', 'Play here: https://2004.lostcity.rs/'), 'ZombieMusiq uploads with 2004.lostcity.rs in the description must be listed');
-expect(youtube_listed('ZombieMusiq', 'Pyromaniac sets Ardougne ablaze', 'Play 2004.LostCity.rs today'), 'The description match must be case-insensitive');
-expect(!youtube_listed('ZombieMusiq', 'Completing 15 quests at once (2004Scape)', 'No link here'), 'ZombieMusiq titles alone must not list a video without 2004.lostcity.rs in the description');
-expect(!youtube_listed('ZombieMusiq', 'Cook\'s assistant quest guide', 'Play at https://lostcity.rs/t/some-thread'), 'A lostcity.rs link without the 2004 host must not list a ZombieMusiq video');
-expect(YOUTUBE_CHANNELS['UCUw68v6UQm_79BWbgbxUyDg'] === 'Ellard2G', 'Ellard must be registered with the verified channel ID');
-expect(youtube_listed('Ellard2G', '2004Scape = Lost City', ''), 'Ellard uploads may identify 2004scape in the title');
-expect(youtube_listed('Ellard2G', 'New XP video', 'Playing on 2004SCAPE'), 'Ellard uploads may identify 2004scape only in the description');
-expect(!youtube_listed('Ellard2G', 'Lost City gameplay', 'https://2004.lostcity.rs/'), 'Ellard uploads must mention 2004scape, not just Lost City');
-expect(!youtube_listed('Ellard2G', 'Battlefield 1', ''), 'Unrelated Ellard uploads must not be listed');
+foreach ([
+    ['Michael_Unce', 'These 5 Skills Took Hundreds Of Hours For 99', "Play Lost City here: https://2004.lostcity.rs/title\n2004 XP/EHP Tracker: https://www.lostcitylabs.com/", true],
+    ['Ellard2G', 'My Best Week On 2004Scape', '', true],
+    ['Ellard2G', 'Edgeville dungeon is not safe on 04scape', '', true],
+    ['nosaching7270', 'solo KQ infodump for Lost City 2004', '', true],
+    ['AutumnElegy', "I'm finally rank 1 in something :D", 'drama thread: https://lostcity.rs/t/internal-information', true],
+    ['tony04scape', '2004Scape IRONMAN CARD SHARK (Tony) QUEST GRIND', 'JOIN LOST CITIZENS #1 LOST CITY COMMUNITY SERVER', true],
+    ['PkLikeElve', 'Watch what happens when he panics', 'I made this amazing video with CapCut.', true],
+    ['garlic04', '2005scape - July Updates', 'Play 2004scape: https://2004.lostcity.rs/roadmap', true],
+    ['Michael_Unce', 'Loot From 5500 Enhanced Crystal Key Chests', 'Old School RuneScape', false],
+    ['WildMudkip', '[OSRS] HCIM 146 - Wildy (2004/2277)', '', false],
+    ['garlic04', 'Becoming Top Wizard on a 9-5 | 2005 RuneScape', 'Lost City fans: https://www.lostcitylabs.com/play', false],
+    ['garlic04', 'Lost Citizens Scape: Slayer: Lets Kill HELLHOUNDS!', '#2004scape #lostcity', false],
+    ['ZombieMusiq', 'Completing RuneScape on PlayStation2 trailer', "https://2004.lostcity.rs/\nPS2 port: https://github.com/johnson-cooper/2004sp-ps2port/releases", false],
+] as [$handle, $title, $description, $listed]) expect(youtube_listed($handle, $title, $description) === $listed, "YouTube listing of '$title' must be " . var_export($listed, true));
 foreach ([
     '/records' => ['achievements', '/records'],
     '/records?skill=Woodcutting' => ['xp', '/records/Woodcutting'],

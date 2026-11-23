@@ -3,7 +3,7 @@ require __DIR__ . '/../src/lib.php';
 if ($db->query('SELECT DATABASE()')->fetchColumn() !== 'labs_records_test') throw new RuntimeException('YouTube integration tests require labs_records_test');
 function youtube_expect(bool $ok, string $why): void {if (!$ok) throw new RuntimeException($why);}
 $db->exec('DELETE FROM youtube_videos'); $db->exec('DELETE FROM youtube_feed_failures');
-$entry = fn(string $id, string $title) => "<entry><yt:videoId>$id</yt:videoId><title>$title</title><author><name>Pk Like Elve</name></author><published>2026-11-20T10:00:00+00:00</published><media:group><media:description>Play https://2004.lostcity.rs/</media:description><media:community><media:statistics views=\"42\"/></media:community></media:group></entry>";
+$entry = fn(string $id, string $title, string $published = '2026-11-20T10:00:00+00:00') => "<entry><yt:videoId>$id</yt:videoId><title>$title</title><author><name>Pk Like Elve</name></author><published>$published</published><media:group><media:description>Play https://2004.lostcity.rs/</media:description><media:community><media:statistics views=\"42\"/></media:community></media:group></entry>";
 $xml = fn(string ...$entries) => '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">' . implode('', $entries) . '</feed>';
 $elve = 'UCO5AUI4v0z8dknNlEZeDF7Q';
 $down = fn(string $id) => $id === $elve ? throw new RuntimeException('feed fetch failed: HTTP/1.1 404 Not Found') : $xml();
@@ -20,10 +20,14 @@ try {
 refresh_youtube_videos($db, $at + 86400000, fn(string $id) => $xml(...($id === $elve ? [$entry('aaaaaaaaaaa', 'Any upload'), $entry('bbbbbbbbbbb', 'Lost Citizens Scape: Mining')] : [])));
 youtube_expect(fetch_rows($db, 'SELECT COUNT(*) AS n FROM youtube_feed_failures')[0]['n'] == 0, 'A recovered feed must clear its failure');
 youtube_expect(array_column(fetch_rows($db, 'SELECT video_id FROM youtube_videos'), 'video_id') === ['aaaaaaaaaaa'], 'Recovered feeds must list their uploads through youtube_listed');
+$feeds = fn(string ...$entries) => fn(string $id) => $xml(...($id === $elve ? $entries : []));
+refresh_youtube_videos($db, $at, $feeds($entry('ccccccccccc', 'Newest', '2026-11-22T10:00:00+00:00'), $entry('ddddddddddd', 'Deleted soon', '2026-11-21T10:00:00+00:00'), $entry('aaaaaaaaaaa', 'Any upload')));
+refresh_youtube_videos($db, $at, $feeds($entry('eeeeeeeeeee', 'Re-upload', '2026-11-23T10:00:00+00:00'), $entry('ccccccccccc', 'Newest', '2026-11-22T10:00:00+00:00'), $entry('fffffffffff', 'Oldest left', '2026-11-20T12:00:00+00:00')));
+youtube_expect(array_column(fetch_rows($db, 'SELECT video_id FROM youtube_videos ORDER BY video_id'), 'video_id') === ['aaaaaaaaaaa', 'ccccccccccc', 'eeeeeeeeeee', 'fffffffffff'], 'A video deleted from between its feed\'s oldest and newest entries must be removed, while videos older than the feed stay');
 try {
     refresh_youtube_videos($db, $at, fn(string $id) => $id === $elve ? '<!DOCTYPE html><p>Before you continue to YouTube' : $xml());
     youtube_expect(false, 'A feed that is not XML must fail the refresh at once');
 } catch (RuntimeException $e) {
     youtube_expect(str_contains($e->getMessage(), '@PkLikeElve: feed is not XML'), "Unexpected failure message: {$e->getMessage()}");
 }
-echo "YouTube: feed failures, recovery and listing passed\n";
+echo "YouTube: feed failures, recovery, listing and deleted uploads passed\n";

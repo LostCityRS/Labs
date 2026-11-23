@@ -125,14 +125,22 @@ function refresh_youtube_videos(PDO $db, int $now, callable $feed): void {
         try {
             $feedXml = @simplexml_load_string($body);
             if ($feedXml === false) throw new RuntimeException('feed is not XML: ' . trim(error_get_last()['message']));
+            $feedTimes = [];
             foreach ($feedXml->entry as $entry) {
                 $yt = $entry->children('yt', true); $media = $entry->children('media', true)->group;
-                if (!youtube_listed($handle, (string) $entry->title, (string) $media->description)) continue;
                 $video = (string) $yt->videoId;
-                $views = $media->community->statistics->attributes()['views'] ?? throw new RuntimeException("video $video has no view count");
                 $published = strtotime((string) $entry->published) ?: throw new RuntimeException("video $video has no publish time");
+                $feedTimes[$video] = $published * 1000;
+                if (!youtube_listed($handle, (string) $entry->title, (string) $media->description)) continue;
+                $views = $media->community->statistics->attributes()['views'] ?? throw new RuntimeException("video $video has no view count");
                 $upsert->execute([$video, $id, (string) $entry->author->name, (string) $entry->title, (string) $media->description, (int) $views, $published * 1000]);
                 if ($upsert->rowCount() === 1) error_log("Labs: YouTube video $video added from @$handle");
+            }
+            // Deleted and private uploads drop out of the feed, so a stored video missing from between its oldest and newest entries is gone.
+            $stored = $feedTimes ? fetch_rows($db, 'SELECT video_id FROM youtube_videos WHERE channel_id = ? AND published_at BETWEEN ? AND ?', [$id, min($feedTimes), max($feedTimes)]) : [];
+            foreach (array_diff(array_column($stored, 'video_id'), array_keys($feedTimes)) as $gone) {
+                $db->prepare('DELETE FROM youtube_videos WHERE video_id = ?')->execute([$gone]);
+                error_log("Labs: YouTube video $gone removed from @$handle; it left the channel's feed");
             }
         } catch (Throwable $e) {
             $errors[] = "@$handle: " . $e->getMessage();

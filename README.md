@@ -41,6 +41,10 @@ To add a creator, add their channel ID to `YOUTUBE_CHANNELS` in `src/youtube.php
 
 For an installation predating Pure and F2P, run `ALTER TABLE players ADD pure TINYINT AFTER skiller, ADD f2p TINYINT AFTER pure`, then `php src/refresh.php --ehp` to classify existing players. Only confirmed accounts are listed: omitted stats count as unknown unless Overall totals prove them.
 
+## Active PKers
+
+`/pkers` lists players who gained XP in the last seven days and whose Defence is at most 78% of the higher of their Strength and Ranged, most weekly XP first. The threshold was fitted to 30 hand-rated accounts; Attack and Magic did not separate PKers from mains. It is a guess from stats, not kill data: a main with balanced stats who PKs is not listed. The official hiscores omit levels below 15, so an omitted Defence counts as 1 and combat levels can be a range. A combat level shows the players within five levels of it (Wilderness level 5).
+
 ---
 
 Join Discord: https://discord.gg/m5Q6ZZrbPH

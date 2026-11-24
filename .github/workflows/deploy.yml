@@ -57,6 +57,7 @@ jobs:
           php8.3 tests/polls-db.php
           php8.3 tests/visitors-db.php
           php8.3 tests/youtube-db.php
+          php8.3 tests/pkers-db.php
 
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

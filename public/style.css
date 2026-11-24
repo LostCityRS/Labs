@@ -256,3 +256,22 @@ small.week{margin-left:6px;font-size:10px}
 @media(max-width:1000px){.achievement-grid{grid-template-columns:repeat(8,minmax(0,1fr))}}
 @media(max-width:800px){.achievement-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:620px){.achievement-collection{padding:14px 10px}.achievement-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:15px 5px}.achievement-tile>a{font-size:9px}.achievement-icon{width:38px;height:45px}.rank-history-heading{font-size:21px}.reign-cell{padding:0 9px;flex-direction:column;justify-content:center;gap:7px}.reign-cell,.reign-cell b{font-size:10px}}
+.pk-form{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pk-form input{width:80px}
+.pk-count{display:block;font:20px Georgia,serif;color:var(--heading)}
+.pk-plot{position:relative;display:flex;height:150px;margin:18px 0 20px 26px}
+.pk-plot i{position:absolute;left:0;right:0;border-top:1px dotted var(--grid)}
+.pk-plot i:first-child{border-top:1px solid var(--border)}
+.pk-plot i::before{content:attr(data-v);position:absolute;right:100%;top:-8px;padding-right:6px;font:10px Arial,sans-serif;color:var(--muted)}
+.pk-plot a{position:relative;flex:1;margin-right:1px;background:linear-gradient(to top,var(--bar,#5a3b31) var(--h),transparent 0)}
+.pk-plot .near{--bar:var(--chart)}
+.pk-plot .you{--bar:var(--gain)}
+.pk-plot span{position:absolute;top:100%;left:50%;transform:translateX(-50%);padding-top:4px;font-size:10px;color:var(--muted)}
+.pk-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.pk-card{background:var(--stripe);border:1px solid var(--border);padding:9px}
+.pk-card header{display:flex;justify-content:space-between;align-items:baseline;gap:6px;margin-bottom:7px}
+.pk-card header a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pk-card header span{font:17px Georgia,serif;color:var(--accent);white-space:nowrap}
+.pk-card .level-grid{grid-auto-flow:column;grid-template:repeat(4,auto)/repeat(2,minmax(0,1fr));gap:3px}
+.pk-card .level-slot{cursor:default}
+.pk-card .muted{font-size:10px}

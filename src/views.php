@@ -2,7 +2,7 @@
 require_once __DIR__ . '/data.php';
 require_once __DIR__ . '/achievements.php';
 // The unnamed first group has no heading.
-const NAV = ['' => ['home' => 'Home'], 'Rankings' => ['hiscores' => 'Hiscores', 'records' => 'Records', 'clans' => 'Clans'], 'World' => ['stats' => 'World stats', 'players' => 'Players online'], 'Community' => ['guides' => 'EHP rates', 'youtube' => 'YouTube']];
+const NAV = ['' => ['home' => 'Home'], 'Rankings' => ['hiscores' => 'Hiscores', 'records' => 'Records', 'clans' => 'Clans'], 'World' => ['stats' => 'World stats', 'players' => 'Players online', 'pkers' => 'Active PKers'], 'Community' => ['guides' => 'EHP rates', 'youtube' => 'YouTube']];
 
 function e($text): string {return htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');}
 function fmt($number, int $decimals = 0): string {return number_format($decimals ? (float) $number : floor((float) $number), $decimals, '.', ',');}
@@ -250,6 +250,29 @@ function youtube_view(array $s, array $d): string {
     foreach (range(1, $d['pages']) as $page) $html .= $link($page, (string) $page);
     return $html . ($d['page'] < $d['pages'] ? $link($d['page'] + 1, 'Older ›') : '') . '</nav></div></section>';
 }
+// Each card's two columns fill downwards: Attack, Strength, Defence, Hitpoints, then Ranged, Magic, Prayer.
+const PKER_SLOTS = [1, 3, 2, 4, 5, 7, 6];
+function pkers_view(array $s, array $pkers): string {
+    $html = '<div class="page-heading"><h1>Active PKers</h1></div>';
+    if (!$pkers) return $html . empty_message('No active PKers yet.');
+    $you = $s['combat']; $per = array_fill(3, 124, 0); $cards = ''; $count = 0;
+    // Wilderness level 5: players within five combat levels can attack each other.
+    $near = fn(int $lo, int $hi) => $you === null || ($hi >= $you - PKER_WILDERNESS && $lo <= $you + PKER_WILDERNESS);
+    foreach ($pkers as $p) {
+        [$lo, $hi] = $p['combat'];
+        for ($c = $lo; $c <= $hi; $c++) $per[$c] += 1 / ($hi - $lo + 1);
+        if (!$near($lo, $hi)) continue;
+        $count++;
+        $cards .= '<div class="pk-card"><header>' . player_link($p['name'], $s['clans']) . '<span>' . $lo . ($hi > $lo ? '–' . $hi : '') . '</span></header><div class="level-grid">';
+        foreach (PKER_SLOTS as $type) $cards .= '<div class="level-slot" title="' . SKILLS[$type] . '">' . icon(SKILLS[$type]) . (isset($p['levels'][$type]) ? '<b>' . $p['levels'][$type] . '</b>' : '<b class="muted">&lt;15</b>') . '</div>';
+        $cards .= '</div></div>';
+    }
+    $top = ceil(max($per) / 20) * 20; $plot = '';
+    for ($v = 0; $v <= $top; $v += $top / 4) $plot .= '<i data-v="' . $v . '" style="bottom:' . $v / $top * 100 . '%"></i>';
+    foreach ($per as $c => $n) $plot .= '<a href="/pkers?combat=' . $c . '" title="Combat ' . $c . '"' . ($c === $you ? ' class="you"' : ($near($c, $c) ? ' class="near"' : '')) . ' style="--h:' . round($n / $top * 100, 1) . '%">' . (in_array($c, [3, 20, 40, 60, 80, 100, 126], true) ? "<span>$c</span>" : '') . '</a>';
+    // A plain GET form: Submit reloads the page, as the 2004 site would.
+    return $html . '<section class="panel"><form class="pk-form" action="/pkers"><label for="combat">Combat Level</label><input id="combat" name="combat" type="number" min="3" max="126" value="' . $you . '" required><button>Submit</button></form><strong class="pk-count">' . fmt($count) . ' active PKer' . ($count === 1 ? '' : 's') . '</strong><div class="pk-plot">' . $plot . '</div></section><section class="panel">' . ($cards === '' ? empty_message('No active PKers in this range.') : '<div class="pk-cards">' . $cards . '</div>') . '</section>';
+}
 function settings_view(array $s, array $profiles): string {
     $body = '<div class="page-heading"><h1>Settings</h1></div><section class="panel"><h2>Character clans</h2>';
     if ($s['saved']) $body .= '<p class="gain" role="status">Settings saved.</p>';
@@ -381,7 +404,7 @@ function account_nav(array $s): string {
     return '<nav class="account-nav" aria-label="Account"><a href="/settings"' . ($s['view'] === 'settings' ? ' aria-current="page"' : '') . '>Settings</a></nav>';
 }
 function page_body(array $s, $d): string {
-    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d), 'youtube' => youtube_view($s, $d)};
+    return match ($s['view']) {'home' => home_view($s, $d), 'player' => player_view($s, $d), 'hiscores' => hiscores_view($s, $d), 'records' => records_view($s, $d), 'players' => players_view($s, $d), 'guides' => guides_view($s, $d), 'clans' => $s['clan'] === null ? clan_hiscores_view($s, $d) : clan_view($s, $d), 'stats' => stats_view($s, $d), 'youtube' => youtube_view($s, $d), 'pkers' => pkers_view($s, $d)};
 }
 function document(array $s, string $body, string $notice = ''): string {
     $title = $s['view'] === 'player' ? display_name($s['name']) : (($s['clan'] ?? null) !== null ? e(CLANS[$s['clan']]['name']) : (['settings' => 'Settings', 'error' => 'Error'] + array_merge(...array_values(NAV)))[$s['view']]);
@@ -390,7 +413,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['share']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=48"><script src="/app.js?v=16" defer></script><script type="module" src="/chart.js?v=4"></script></head><body' . ($s['view'] !== 'error' && http_response_code() < 400 ? ' data-track-visits' : '') . '>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=49"><script src="/app.js?v=16" defer></script><script type="module" src="/chart.js?v=4"></script></head><body' . ($s['view'] !== 'error' && http_response_code() < 400 ? ' data-track-visits' : '') . '>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

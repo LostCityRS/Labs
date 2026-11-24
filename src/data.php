@@ -13,6 +13,7 @@ require_once __DIR__ . '/youtube.php';
 require_once __DIR__ . '/polls.php';
 require_once __DIR__ . '/similar.php';
 require_once __DIR__ . '/visitors.php';
+require_once __DIR__ . '/pkers.php';
 
 function parameter(array $params, string $key, string $default = ''): string {
     $value = $params[$key] ?? $default;
@@ -29,8 +30,8 @@ function page_state(string $uri, array $params, int $now): array {
     if (!is_string($path)) throw new InvalidArgumentException('Invalid URL');
     $path = '/' . trim(rawurldecode($path), '/');
     $parts = explode('/', substr($path, 1));
-    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player', 'settings', 'clans', 'stats', 'youtube' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
-    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || ($view === 'clans' && (count($parts) > 2 || (isset($parts[1]) && !isset(CLANS[$parts[1]])))) || (in_array($view, ['home', 'hiscores', 'players', 'settings', 'stats', 'youtube']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
+    $view = match ($parts[0]) {'' , 'home' => 'home', 'hiscores', 'records', 'players', 'player', 'settings', 'clans', 'stats', 'youtube', 'pkers' => $parts[0], 'guides' => 'guides', default => throw new OutOfBoundsException('Page not found')};
+    if (($view === 'guides' && $parts !== ['guides', 'ehp']) || ($view === 'player' && (count($parts) < 2 || count($parts) > 3)) || ($view === 'records' && count($parts) > 2) || ($view === 'clans' && (count($parts) > 2 || (isset($parts[1]) && !isset(CLANS[$parts[1]])))) || (in_array($view, ['home', 'hiscores', 'players', 'settings', 'stats', 'youtube', 'pkers']) && count($parts) !== 1)) throw new OutOfBoundsException('Page not found');
     $clan = $view === 'clans' ? $parts[1] ?? null : null;
     $period = parameter($params, 'period', $view === 'clans' ? '7d' : '24h');
     if (!isset(PERIODS[$period])) throw new InvalidArgumentException("Unknown period: $period");
@@ -52,9 +53,9 @@ function page_state(string $uri, array $params, int $now): array {
     }
     $query = http_build_query($params);
     // Shared links must identify the selected view, not the unfiltered default.
-    $shareQuery = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'account', 'metric', 'scale', 'day', 'hide', 'page'])));
+    $shareQuery = http_build_query(array_intersect_key($params, array_flip(['period', 'skill', 'section', 'board', 'account', 'metric', 'scale', 'day', 'hide', 'page', 'combat'])));
     $share = $canonical . ($shareQuery === '' ? '' : '?' . $shareQuery);
-    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share', 'query') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []);
+    return compact('view', 'period', 'skill', 'type', 'name', 'now', 'canonical', 'clan', 'section', 'share', 'query') + ($view === 'hiscores' ? hiscore_options($params) : []) + ($view === 'clans' ? clan_options($params, $clan === null) : []) + ($view === 'stats' ? online_options($params) : []) + ($view === 'pkers' ? ['combat' => pker_combat($params)] : []);
 }
 
 function fetch_rows(PDO $db, string $sql, array $args = []): array {
@@ -126,6 +127,7 @@ function get_data(PDO $db, array $params, int $now, bool $playerChart = false) {
         'clan' => isset(CLANS[$clan = parameter($params, 'clan')]) ? ['members' => $members = clan_members($db, $clan, $period, $now), 'levels' => clan_skill_xp($db, $members), 'videos' => clan_videos($db, $clan)] : throw new InvalidArgumentException('Unknown clan'),
         'clan-hiscores' => array_map(fn($key) => ['members' => $members = clan_members($db, $key, $period, $now), 'levels' => clan_skill_xp($db, $members)], array_combine(array_keys(CLANS), array_keys(CLANS))),
         'youtube' => youtube_page($db, filter_var(parameter($params, 'page', '1'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: throw new InvalidArgumentException('Invalid page')),
+        'pkers' => active_pkers($db),
         'guides' => json_decode(file_get_contents(__DIR__ . '/rates.json'), true, flags: JSON_THROW_ON_ERROR)['skills'],
         default => throw new InvalidArgumentException('Unknown query'),
     };

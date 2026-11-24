@@ -43,7 +43,7 @@ For an installation predating Pure and F2P, run `ALTER TABLE players ADD pure TI
 
 ## Active PKers
 
-`/pkers` lists players who gained XP in the last seven days and whose Defence is at most 78% of the higher of their Strength and Ranged, most weekly XP first. The threshold was fitted to 30 hand-rated accounts; Attack and Magic did not separate PKers from mains. It is a guess from stats, not kill data: a main with balanced stats who PKs is not listed. The official hiscores omit levels below 15, so an omitted Defence counts as 1 and combat levels can be a range. A combat level shows the players within five levels of it (Wilderness level 5).
+`/pkers` lists players who gained XP in the last seven days and whose Defence is at most 78% of the higher of their Strength and Ranged, most weekly XP first. The threshold was fitted to 30 hand-rated accounts; Attack and Magic did not separate PKers from mains. It is a guess from stats, not kill data: a main with balanced stats who PKs is not listed. The official hiscores omit levels below 15; an omitted level counts as 1 (Hitpoints as 10), so a listed combat level can be a few levels too low. A combat level shows the players within five levels of it (Wilderness level 5).
 
 ---
 

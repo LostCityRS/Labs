@@ -274,4 +274,3 @@ small.week{margin-left:6px;font-size:10px}
 .pk-card header span{font:17px Georgia,serif;color:var(--accent);white-space:nowrap}
 .pk-card .level-grid{grid-auto-flow:column;grid-template:repeat(4,auto)/repeat(2,minmax(0,1fr));gap:3px}
 .pk-card .level-slot{cursor:default}
-.pk-card .muted{font-size:10px}

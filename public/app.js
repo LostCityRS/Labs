@@ -16,7 +16,8 @@ const trackVisit = async () => {
       localStorage.setItem('labs_visitor', visitor);
     }
     const response = await fetch('/hit', {method: 'POST', credentials: 'omit', body: new URLSearchParams({visitor})});
-    if (response.status !== 204) throw new Error('Visitor ping failed: HTTP ' + response.status);
+    if (response.status === 204 || (response.status === 200 && response.headers.get('X-Labs-Visit') === 'crawler')) return;
+    throw new Error('Unexpected visitor ping response: HTTP ' + response.status);
   } catch (error) {console.error('Labs visitor tracking:', error);}
 };
 document.addEventListener('visibilitychange', trackVisit);

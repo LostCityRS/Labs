@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 const source = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
-function browser({visible = true, tracked = true, storageError = false, status = 204} = {}) {
+function browser({visible = true, tracked = true, storageError = false, status = 204, visitHeader = null} = {}) {
   const listeners = {}, requests = [], errors = [], storage = new Map();
   const on = (name, fn) => (listeners[name] ??= []).push(fn);
   const events = Object.fromEntries(['pageshow', 'visibilitychange'].map(name => [name, async () => {for (const fn of listeners[name]) await fn();}]));
   let generated = 0;
   const document = {visibilityState: visible ? 'visible' : 'hidden', body: {hasAttribute: name => tracked && name === 'data-track-visits'}, addEventListener: on, querySelectorAll: () => []};
-  runInNewContext(source, {window: {addEventListener: on}, document, location: {hash: ''}, setTimeout: fn => fn(), URLSearchParams, crypto: {randomUUID: () => {generated++; return '00000000-0000-4000-8000-000000000001';}}, localStorage: {getItem: key => {if (storageError) throw new Error('Storage disabled'); return storage.get(key) ?? null;}, setItem: (key, value) => storage.set(key, value)}, fetch: async (path, options) => {requests.push({path, options}); return {status};}, console: {error: (...args) => errors.push(args)}});
+  runInNewContext(source, {window: {addEventListener: on}, document, location: {hash: ''}, setTimeout: fn => fn(), URLSearchParams, crypto: {randomUUID: () => {generated++; return '00000000-0000-4000-8000-000000000001';}}, localStorage: {getItem: key => {if (storageError) throw new Error('Storage disabled'); return storage.get(key) ?? null;}, setItem: (key, value) => storage.set(key, value)}, fetch: async (path, options) => {requests.push({path, options}); return {status, headers: new Map([['X-Labs-Visit', visitHeader]])};}, console: {error: (...args) => errors.push(args)}});
   return {events, requests, errors, storage, document, generated: () => generated};
 }
 const b = browser();
@@ -34,7 +34,12 @@ const blocked = browser({storageError: true});
 await blocked.events.pageshow();
 assert.equal(blocked.requests.length, 0, 'Blocked storage must not generate a new visitor per page');
 assert.equal(blocked.errors.length, 1, 'Storage failures must be observable');
-const failed = browser({status: 500});
-await failed.events.pageshow();
-assert.equal(failed.errors.length, 1, 'Endpoint failures must be observable');
+const crawler = browser({status: 200, visitHeader: 'crawler'});
+await crawler.events.pageshow();
+assert.equal(crawler.errors.length, 0, 'The crawler response must not be a false tracking error');
+for (const status of [200, 500]) {
+  const failed = browser({status});
+  await failed.events.pageshow();
+  assert.equal(failed.errors.length, 1, 'Unexpected responses must be observable, even HTTP 200');
+}
 console.log('Visitors: visible pages, stable identity, cookie isolation and observable failures passed');

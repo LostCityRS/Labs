@@ -328,10 +328,15 @@ function clan_levels(array $s, array $skills, array $ehp): string {
 }
 function visitors_view(array $s, array $v): string {
     $html = '<section class="panel graph-panel" id="labs-visitors"><h2>Labs visitors</h2><div class="stats">';
-    foreach ([1 => 'Today', 7 => 'Last 7 days', 30 => 'Last 30 days'] as $days => $label) $html .= '<div><span>' . $label . '</span><strong>' . fmt($v['counts'][$days]) . '</strong></div>';
-    $html .= '</div><p class="muted">Distinct browsers, not page views. UTC days; today is still in progress.</p>';
-    $html .= chart([['points' => $v['daily']]], 'Labs visitors per UTC day', 'visitors', $s, true);
-    $html .= '<p class="muted">Returning visitors: ' . ($v['returning'] === null ? '— (needs visits in the last 7 days and 14 days of history)' : '<b>' . fmt($v['returning']['percent'], 1) . '%</b> · ' . fmt($v['returning']['count']) . ' of ' . fmt($v['counts'][7]) . ' browsers in the last 7 days also visited in the preceding 7 days.') . '</p>';
+    foreach ([1 => 'Today', 7 => 'Last 7 days', 30 => 'Last 30 days'] as $days => $label) $html .= '<div><span>' . $label . '</span><strong>' . ($v['trackedDays'] ? fmt($v['counts'][$days]) : '—') . '</strong></div>';
+    $html .= '</div><p class="muted">Distinct browsers, known bots excluded. UTC days; today is still in progress.</p>';
+    if (!$v['trackedDays']) $html .= empty_message('Filtered reporting starts ' . gmdate('j M Y', intdiv(VISITOR_FILTERED_FROM, 1000)) . ' UTC.');
+    else {
+        if ($v['trackedDays'] < 30) $html .= '<p class="muted">' . $v['trackedDays'] . ' of 30 days of filtered history available.</p>';
+        $html .= chart([['points' => $v['daily']]], 'Filtered Labs visitors per UTC day', 'browsers', $s, true);
+    }
+    $html .= '<p class="muted">Returning visitors: ' . ($v['returning'] === null ? '— (needs 14 full days of filtered history and visits in the last 7 days)' : '<b>' . fmt($v['returning']['percent'], 1) . '%</b> · ' . fmt($v['returning']['count']) . ' of ' . fmt($v['counts'][7]) . ' browsers in the last 7 days also visited in the preceding 7 days.') . '</p>';
+    if ($v['legacy']) $html .= '<details><summary>Legacy visitor counts (includes bots)</summary><section aria-label="Legacy visitor chart">' . chart([['points' => $v['legacy']]], 'Legacy browser IDs per UTC day (includes bots)', 'browser IDs', $s, true) . '</section></details>';
     return $html . '</section>';
 }
 const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];
@@ -412,7 +417,7 @@ function document(array $s, string $body, string $notice = ''): string {
         [$description, $image] = $s['meta']; $origin = auth_origin('LABS_SITE_ORIGIN');
         $meta = '<meta name="description" content="' . e($description) . '"><meta property="og:site_name" content="Lost City Labs"><meta property="og:title" content="' . ($s['view'] === 'home' ? 'Lost City Labs' : $title . ' · Lost City Labs') . '"><meta property="og:description" content="' . e($description) . '"><meta property="og:url" content="' . e($origin . $s['share']) . '"><meta property="og:image" content="' . e($origin . $image) . '"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#dfa18b">';
     }
-    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=50"><script src="/app.js?v=16" defer></script><script type="module" src="/chart.js?v=4"></script></head><body' . ($s['view'] !== 'error' && http_response_code() < 400 ? ' data-track-visits' : '') . '>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
+    $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $title . ' · Lost City Labs</title>' . $meta . '<link rel="icon" href="/assets/stats.png" sizes="25x24"><link rel="icon" href="/assets/touch-icon.png" sizes="200x200"><link rel="apple-touch-icon" href="/assets/touch-icon.png"><link rel="stylesheet" href="/style.css?v=50"><script src="/app.js?v=17" defer></script><script type="module" src="/chart.js?v=4"></script></head><body' . ($s['view'] !== 'error' && http_response_code() < 400 ? ' data-track-visits' : '') . '>' . $notice . (in_array($s['view'], ['records', 'player'], true) ? achievement_filter() : '') . '<div class="shell"><header class="masthead"><a class="brand" href="/"><img class="mark" src="/assets/stats.png" alt="" width="25" height="24"><span>Lost City <b>Labs</b></span></a>' . account_nav($s) . '</header><div class="layout"><aside class="sidebar">';
     foreach (NAV as $group => $links) {
         $html .= ($group === '' ? '' : '<div class="sidebar-heading">' . $group . '</div>') . '<nav aria-label="' . ($group ?: 'Home') . '">';
         foreach ($links as $view => $label) $html .= '<a href="' . (['home' => '/', 'records' => '/records', 'guides' => '/guides/ehp'][$view] ?? '/' . $view) . '"' . ($view === $s['view'] ? ' aria-current="page"' : '') . '>' . $label . '</a>';

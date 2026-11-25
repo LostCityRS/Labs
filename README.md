@@ -21,7 +21,7 @@ Run `php src/refresh.php --similar` with the normal database environment before 
 
 ## Labs visitors
 
-For an existing installation, create the `visits` table using its definition in the schema before deploying visitor tracking. `/stats` reports distinct browsers using a random local-storage ID, not accounts or IPs; only a UTC day and browser ID are retained. Returning visitors compares the last seven UTC days (including today) against the preceding seven and is unavailable until 14 days of history exist. Non-JavaScript clients and hidden pages are not counted; browser automation can still inflate counts. There is no backfill before tracking began.
+For an existing installation, create the `visits` table using its definition in the schema before deploying visitor tracking. `/stats` counts distinct local-storage IDs, not people; only a UTC day and browser ID are retained. On `/hit`, HTTP 204 means accepted (possibly a repeat ID), and HTTP 200 with `X-Labs-Visit: crawler` means filtered without a write. Unknown automation can still count. Headline totals and returning visitors use the filtered baseline only; legacy data cannot be retroactively filtered. Returning visitors compares the last seven UTC days (including today) with the preceding seven, after 14 full days of filtered tracking.
 
 ## Community poll
 

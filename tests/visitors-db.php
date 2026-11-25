@@ -11,17 +11,17 @@ $before = $start - 1;
 record_visit($db, $ids[0], $before);
 record_visit($db, $ids[6], $before);
 $v = visitor_stats($db, $before);
-expect($v['trackedDays'] === 0 && $v['daily'] === [] && $v['counts'] === [1 => 0, 7 => 0, 30 => 0], 'Do not report filtered visits before the UTC cutover');
-$legacy = [['at' => $start - DAY_MS, 'value' => 2]];
-expect($v['legacy'] === $legacy, 'Pre-cutover counts must remain available separately');
+expect($v === ['started' => null, 'counts' => [1 => 0, 7 => 0, 30 => 0], 'returning' => null, 'daily' => []], 'Do not report visits before the UTC cutover');
 $html = visitors_view(page_state('/stats', [], $before), $v);
-expect(substr_count($html, '<strong>—</strong>') === 3 && str_contains($html, 'Filtered reporting starts') && str_contains($html, '<details><summary>Legacy visitor counts (includes bots)</summary>'), 'Public page must leave headlines blank and label the collapsed legacy chart before cutover');
+expect(strip_tags($html) === 'Labs visitorsToday—Last 7 days—Last 30 days—' && !str_contains($html, 'data-chart'), 'Before cutover show only the headline placeholders');
 $v = visitor_stats($db, $start);
-expect($v['trackedDays'] === 1 && $v['daily'] === [['at' => $start, 'value' => 0]] && $v['counts'] === [1 => 0, 7 => 0, 30 => 0], 'First UTC midnight starts exactly one filtered day, even when empty');
+expect($v['started'] === $start && $v['daily'] === [['at' => $start, 'value' => 0]] && $v['counts'] === [1 => 0, 7 => 0, 30 => 0], 'First UTC midnight starts exactly one filtered day, even when empty');
 record_visit($db, $ids[0], $start);
 $v = visitor_stats($db, $start);
-expect($v['counts'] === [1 => 1, 7 => 1, 30 => 1] && $v['legacy'] === $legacy, 'No legacy-only ID may reach filtered totals');
-expect($v['returning'] === null && str_contains(visitors_view(page_state('/stats', [], $start), $v), '1 of 30 days of filtered history available.'), 'Partial history must be clear on the chart');
+expect($v['counts'] === [1 => 1, 7 => 1, 30 => 1] && $v['daily'] === [['at' => $start, 'value' => 1]], 'Legacy rows must not appear in the chart or totals');
+$html = visitors_view(page_state('/stats', [], $start), $v);
+expect(substr_count($html, 'data-chart=') === 1 && !str_contains($html, '<p class="muted">'), 'Show just the filtered chart and headlines until returning visits are available');
+expect($db->query('SELECT COUNT(*) FROM visits WHERE day < ' . $start)->fetchColumn() == 2, 'Legacy rows must be preserved');
 foreach (['', 'bad', $ids[0] . "\n", str_replace('4000', '5000', $ids[0])] as $id) {
     try {record_visit($db, $id, $today); throw new LogicException('Bad visitor ID accepted');}
     catch (InvalidArgumentException $e) {}
@@ -39,11 +39,10 @@ record_visit($db, $ids[4], $today);
 $v = visitor_stats($db, $today);
 expect($v['counts'] === [1 => 2, 7 => 3, 30 => 5], 'UTC boundaries and cross-day deduplication must be exact');
 expect($v['returning']['count'] === 1 && abs($v['returning']['percent'] - 100 / 3) < 0.001, 'Returning share must use current visitors as denominator');
-expect($v['trackedDays'] === 30 && count($v['daily']) === 30 && $v['daily'][0]['at'] === $day - 29 * DAY_MS && $v['legacy'] === $legacy, 'Filtered chart must cover 30 days without displacing legacy history');
+expect(count($v['daily']) === 30 && $v['daily'][0]['at'] === $day - 29 * DAY_MS, 'Filtered chart must cover the last 30 UTC days');
 expect($v['daily'][1]['value'] === 0 && $v['daily'][29]['value'] === 2 && $v['daily'][28]['value'] === 1, 'Missing days must be zero; repeat loads must count once');
 $html = visitors_view(page_state('/stats', [], $today), $v);
-expect(!str_contains($html, 'One random browser ID') && !str_contains($html, 'Tracking since'), 'Visitor panel must omit the removed tracking paragraph');
-expect(str_contains($html, '33.3%') && str_contains($html, '1 of 3 browsers') && str_contains($html, 'today is still in progress'), 'Stats must explain return share and partial current day');
+expect(str_contains($html, '<p class="muted">Returning visitors: <b>33.3%</b></p>') && substr_count($html, '<p class="muted">') === 1, 'Show the available return share without explanatory copy');
 expect(!str_contains(json_encode($v), $ids[2]), 'Aggregates must never reveal visitor identifiers');
 putenv('LABS_SITE_ORIGIN=http://localhost');
 $_SERVER['REQUEST_METHOD'] = 'GET';

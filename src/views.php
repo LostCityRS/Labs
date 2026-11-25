@@ -328,15 +328,10 @@ function clan_levels(array $s, array $skills, array $ehp): string {
 }
 function visitors_view(array $s, array $v): string {
     $html = '<section class="panel graph-panel" id="labs-visitors"><h2>Labs visitors</h2><div class="stats">';
-    foreach ([1 => 'Today', 7 => 'Last 7 days', 30 => 'Last 30 days'] as $days => $label) $html .= '<div><span>' . $label . '</span><strong>' . ($v['trackedDays'] ? fmt($v['counts'][$days]) : '—') . '</strong></div>';
-    $html .= '</div><p class="muted">Distinct browsers, known bots excluded. UTC days; today is still in progress.</p>';
-    if (!$v['trackedDays']) $html .= empty_message('Filtered reporting starts ' . gmdate('j M Y', intdiv(VISITOR_FILTERED_FROM, 1000)) . ' UTC.');
-    else {
-        if ($v['trackedDays'] < 30) $html .= '<p class="muted">' . $v['trackedDays'] . ' of 30 days of filtered history available.</p>';
-        $html .= chart([['points' => $v['daily']]], 'Filtered Labs visitors per UTC day', 'browsers', $s, true);
-    }
-    $html .= '<p class="muted">Returning visitors: ' . ($v['returning'] === null ? '— (needs 14 full days of filtered history and visits in the last 7 days)' : '<b>' . fmt($v['returning']['percent'], 1) . '%</b> · ' . fmt($v['returning']['count']) . ' of ' . fmt($v['counts'][7]) . ' browsers in the last 7 days also visited in the preceding 7 days.') . '</p>';
-    if ($v['legacy']) $html .= '<details><summary>Legacy visitor counts (includes bots)</summary><section aria-label="Legacy visitor chart">' . chart([['points' => $v['legacy']]], 'Legacy browser IDs per UTC day (includes bots)', 'browser IDs', $s, true) . '</section></details>';
+    foreach ([1 => 'Today', 7 => 'Last 7 days', 30 => 'Last 30 days'] as $days => $label) $html .= '<div><span>' . $label . '</span><strong>' . ($v['started'] === null ? '—' : fmt($v['counts'][$days])) . '</strong></div>';
+    $html .= '</div>';
+    if ($v['daily']) $html .= chart([['points' => $v['daily']]], 'Labs visitors per UTC day', 'browsers', $s, true);
+    if ($v['returning'] !== null) $html .= '<p class="muted">Returning visitors: <b>' . fmt($v['returning']['percent'], 1) . '%</b></p>';
     return $html . '</section>';
 }
 const DAY_COLORS = ['weekday' => '#d9886f', 'saturday' => '#e0cf9c', 'sunday' => '#8fb4d9', 'holiday' => '#7fbf7f'];

@@ -22,32 +22,20 @@ function record_visit(PDO $db, string $visitor, int $now): void {
     $db->prepare('INSERT INTO visits (day, visitor) VALUES (?, UNHEX(?)) ON DUPLICATE KEY UPDATE day = day')->execute([intdiv($now, DAY_MS) * DAY_MS, str_replace('-', '', $visitor)]);
 }
 
-function visitor_daily(PDO $db, int $from, int $through, bool $legacy = false): array {
-    if ($from > $through) return [];
-    $rows = array_column(fetch_rows($db, 'SELECT day, COUNT(*) AS n FROM visits WHERE day >= ? AND day <= ? GROUP BY day ORDER BY day', [$from, $through]), 'n', 'day');
-    if ($legacy) {
-        if (!$rows) return [];
-        $from = (int) array_key_first($rows);
-    }
-    $daily = [];
-    for ($day = $from; $day <= $through; $day += DAY_MS) $daily[] = ['at' => $day, 'value' => (int) ($rows[$day] ?? 0)];
-    return $daily;
-}
-
 function visitor_stats(PDO $db, int $now): array {
     $today = intdiv($now, DAY_MS) * DAY_MS;
-    $start = VISITOR_FILTERED_FROM;
-    $trackedDays = min(30, max(0, intdiv($today - $start, DAY_MS) + 1));
+    $started = VISITOR_FILTERED_FROM;
     $counts = [1 => 0, 7 => 0, 30 => 0];
-    if ($trackedDays) {
-        foreach ($counts as $days => $_) $counts[$days] = (int) fetch_rows($db, 'SELECT COUNT(DISTINCT visitor) AS n FROM visits WHERE day >= ? AND day <= ?', [max($start, $today - ($days - 1) * DAY_MS), $today])[0]['n'];
-    }
+    if ($today < $started) return ['started' => null, 'counts' => $counts, 'returning' => null, 'daily' => []];
+    foreach ($counts as $days => $_) $counts[$days] = (int) fetch_rows($db, 'SELECT COUNT(DISTINCT visitor) AS n FROM visits WHERE day >= ? AND day <= ?', [max($started, $today - ($days - 1) * DAY_MS), $today])[0]['n'];
     $returning = null;
-    if ($today >= $start + 14 * DAY_MS && $counts[7] > 0) {
+    if ($today >= $started + 14 * DAY_MS && $counts[7] > 0) {
         $both = fetch_rows($db, 'SELECT COUNT(*) AS n FROM (SELECT visitor FROM visits WHERE day >= ? AND day <= ? GROUP BY visitor HAVING MIN(day) < ? AND MAX(day) >= ?) v', [$today - 13 * DAY_MS, $today, $today - 6 * DAY_MS, $today - 6 * DAY_MS])[0]['n'];
         $returning = ['count' => (int) $both, 'percent' => $both / $counts[7] * 100];
     }
-    $daily = visitor_daily($db, max($start, $today - 29 * DAY_MS), $today);
-    $legacy = visitor_daily($db, $start - 30 * DAY_MS, min($today, $start - DAY_MS), true);
-    return ['started' => $trackedDays ? $start : null] + compact('trackedDays', 'counts', 'returning', 'daily', 'legacy');
+    $from = max($started, $today - 29 * DAY_MS);
+    $rows = array_column(fetch_rows($db, 'SELECT day, COUNT(*) AS n FROM visits WHERE day >= ? AND day <= ? GROUP BY day', [$from, $today]), 'n', 'day');
+    $daily = [];
+    for ($day = $from; $day <= $today; $day += DAY_MS) $daily[] = ['at' => $day, 'value' => (int) ($rows[$day] ?? 0)];
+    return compact('started', 'counts', 'returning', 'daily');
 }

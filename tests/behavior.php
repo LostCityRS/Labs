@@ -85,6 +85,8 @@ expect(str_contains($html, '<form class="pk-form" action="/pkers">') && str_cont
 expect(str_contains(pkers_view(['combat' => null, 'clans' => []], $pkers), '>3 active PKers<') && str_contains(pkers_view(['combat' => 30, 'clans' => []], $pkers), 'No active PKers in this range.') && str_contains(pkers_view(['combat' => null, 'clans' => []], []), 'No active PKers yet.'), 'Active PKers must list everyone without a combat level and say when nobody matches');
 $s = page_state('/youtube', ['page' => '2'], $now);
 expect($s['share'] === '/youtube?page=2', 'Sharing a video page must retain its page number');
+$pager = fn(int $page, int $pages) => strip_tags(explode('<nav class="segments" aria-label="Pages">', youtube_view(['now' => $now], ['page' => $page, 'pages' => $pages, 'total' => $pages * YOUTUBE_PAGE, 'videos' => []]))[1]);
+expect($pager(12, 86) === '‹ Newer1…111213…86Older ›' && $pager(1, 86) === '12…86Older ›' && $pager(86, 86) === '‹ Newer1…8586' && $pager(4, 9) === '‹ Newer1…345…9Older ›' && $pager(3, 5) === '‹ Newer12345Older ›' && $pager(1, 1) === '1', 'The video pager must show both ends and the pages next to the current one, with … for skipped pages');
 $stats = fn(array $levels, array $xp10 = [], ?array $overall = null, array $stale = []) => array_merge(array_map(fn($type) => ['type' => $type, 'level' => $levels[$type], 'value' => $xp10[$type] ?? ($levels[$type] > 1 ? 1000000 : 0), 'at' => in_array($type, $stale, true) ? 1 : 2], array_keys($levels)), $overall === null ? [] : [['type' => 0, 'level' => $overall[0], 'value' => $overall[1], 'at' => 2]]);
 $all = array_fill_keys(array_keys(array_diff_key(SKILLS, [0 => true])), 1); $all[4] = 10;
 $pure = $all; $pure[1] = 60; $pure[3] = 80; $pure[5] = 70;

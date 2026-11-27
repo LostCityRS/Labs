@@ -219,6 +219,8 @@ small.week{margin-left:6px;font-size:10px}
 .yt-grid small a{color:inherit}
 .pager{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;padding-top:14px}
 .pager .segments{flex-wrap:wrap}
+.pager .gap{font-size:11px;color:var(--muted);padding:5px 2px}
+@media(max-width:600px){.pager .segments a{min-width:28px;padding:5px 6px}}
 .recent-videos .panel-heading a{font-size:11px}
 .recent-videos .video{display:grid;grid-template-columns:80px minmax(0,1fr);gap:2px 9px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.3}
 .recent-videos .video:last-child{border:0;padding-bottom:0}

@@ -87,6 +87,7 @@ const YOUTUBE_CHANNELS = [
     'UCPGQE5qkk2JUrNNutNln-6A' => 'PixelzGaming',
     'UCI8vdLEFFzmEzjJrI2etsYg' => 'falcondor96',
     'UC6JBwaQHB4ikdJXTPm2kyJg' => 'FreshhStartt',
+    'UCWL8_XlV8NrTIBaIiQtARag' => 'DivineMagic1994',
 ];
 const YOUTUBE_PAGE = 10;
 
